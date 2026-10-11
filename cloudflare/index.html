@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Confecciones Perú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,600&family=Nunito:wght@400;500;600;700;800&display=swap">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          thread: { DEFAULT: '#a3371a', dark: '#792712', soft: '#f4d9c0' },
+          accent: { DEFAULT: '#5b6e23', dark: '#44541a', soft: '#e4ecc4' },
+          ofrezco: { DEFAULT: '#1e7d3c', bg: '#e3f3e6', wash: '#f3faf3' },
+          busca: { DEFAULT: '#2b4fc9', bg: '#e7edfc', wash: '#f3f6fe' },
+          urgente: { DEFAULT: '#9c3f1c', bg: '#fbe0cf' },
+          ink: { DEFAULT: '#181310', soft: '#68594a' },
+        },
+        fontFamily: {
+          sans: ['Nunito', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          display: ['Fraunces', 'Georgia', 'serif'],
+        },
+      },
+    },
+  };
+</script>
+<style type="text/tailwindcss">
+  .icon{ @apply inline-block align-[-0.15em]; }
+  .scrollbar-none{ scrollbar-width:none; }
+  .scrollbar-none::-webkit-scrollbar{ display:none; }
+
+  .card{ @apply bg-white border border-stone-200 border-l-[5px] rounded-[1.5rem] p-[1.15rem] flex flex-col gap-2 transition-all duration-150; border-left-color:#e7e0d2; }
+  .card:hover{ @apply -translate-y-1 shadow-xl; }
+  .card:has(.badge-ofrezco){ @apply bg-gradient-to-b from-ofrezco-wash to-white; }
+  .card:has(.badge-busca){ @apply bg-gradient-to-b from-busca-wash to-white; }
+  .card.card-urgente{ @apply ring-2 ring-urgente ring-inset; }
+  .card.card-destacado{ @apply bg-gradient-to-b from-accent-soft to-white ring-2 ring-accent ring-inset; border-left-color:#5b6e23; border-left-width:7px; box-shadow:0 14px 30px -12px rgba(91,110,35,.45); }
+  @media (prefers-reduced-motion:reduce){ .card{ @apply transition-none; } .card:hover{ @apply translate-y-0; } }
+
+  .card-photos img{ @apply w-20 h-20 object-cover rounded-2xl shrink-0 bg-stone-100; }
+
+  .badge-ofrezco{ @apply bg-ofrezco-bg text-ofrezco; }
+  .badge-busca{ @apply bg-busca-bg text-busca; }
+  .badge-urgente{ @apply bg-urgente-bg text-urgente; }
+
+  .chip{ @apply text-[11px] font-semibold bg-stone-100 text-thread-dark px-2.5 py-1 rounded-full; }
+  .chip-perfil{ @apply bg-thread-soft text-thread-dark uppercase tracking-wide text-[10px]; }
+  .chip-disponibilidad{ @apply bg-busca-bg text-busca; }
+
+  .wa-link{ @apply bg-gradient-to-r from-[#25D366] to-[#1ebe5b] shadow-[0_8px_18px_-8px_rgba(37,211,102,.55)]; }
+  .wa-link:hover{ @apply -translate-y-0.5; }
+
+  .foto-thumb{ @apply relative w-16 h-16; }
+  .foto-thumb img{ @apply w-full h-full object-cover rounded-xl border border-stone-200 block; }
+  .foto-thumb-remove{ @apply absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-ink text-white border-0 text-xs leading-none flex items-center justify-center p-0 cursor-pointer; }
+
+  .cat-toggle{ @apply relative cursor-pointer; }
+  .cat-toggle input{ @apply absolute opacity-0 w-px h-px; }
+  .cat-toggle span{ @apply inline-block px-3 py-1.5 rounded-full border border-stone-200 text-[13px] font-medium bg-white transition-colors; }
+  .cat-toggle input:checked + span{ @apply bg-thread border-thread text-white; }
+  .cat-toggle input:focus-visible + span{ @apply outline outline-2 outline-thread outline-offset-2; }
+
+  .tipo-choice input{ @apply absolute opacity-0 w-px h-px; }
+  .tipo-choice span{ @apply block text-center px-2 py-2.5 rounded-2xl border border-stone-200 text-[13px] font-bold cursor-pointer transition-all; }
+  .tipo-choice input:checked + span{ @apply bg-gradient-to-r from-thread to-thread-dark text-white border-transparent shadow-[0_10px_24px_-8px_rgba(163,55,26,.45)] -translate-y-0.5; }
+  .tipo-choice input:focus-visible + span{ @apply outline outline-2 outline-thread outline-offset-2; }
+
+  .tipo-tab[aria-pressed="true"]{ @apply bg-gradient-to-r from-accent to-accent-dark text-white border-transparent shadow-[0_8px_18px_-8px_rgba(91,110,35,.5)]; }
+  .mode-tab[aria-pressed="true"]{ @apply bg-gradient-to-r from-thread to-thread-dark text-white border-transparent shadow-[0_10px_24px_-8px_rgba(163,55,26,.45)]; }
+
+  .submit-btn{ @apply bg-gradient-to-r from-thread to-thread-dark shadow-[0_10px_24px_-8px_rgba(163,55,26,.4)]; }
+  .submit-btn:hover{ @apply -translate-y-0.5; }
+  #fab{ @apply bg-gradient-to-br from-accent to-accent-dark shadow-[0_10px_24px_-6px_rgba(91,110,35,.55)]; }
+  #fab:hover{ @apply scale-105 rotate-90; }
+
+  #modal, #mercModal, #servicioModal{ @apply hidden fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px] items-end justify-center sm:items-center; }
+  #modal.open, #mercModal.open, #servicioModal.open{ @apply flex; }
+
+  #emptyState, #mercEmptyState, #servicioEmptyState{ @apply hidden; }
+  #emptyState.visible, #mercEmptyState.visible, #servicioEmptyState.visible{ @apply block; }
+</style>
+</head>
+<body class="font-sans text-ink bg-[#fbf9f5] antialiased">
+
+<header class="sticky top-0 z-20 bg-gradient-to-r from-[#c24a1f] to-[#8a2c12] rounded-b-3xl shadow-lg">
+  <div class="max-w-3xl mx-auto px-4 flex items-center justify-between gap-3 py-4">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-white text-thread-dark flex items-center justify-center shrink-0 shadow-md">
+        <svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.2 7.8L20 20M8.2 16.2L20 4M8 12h1"/></svg>
+      </div>
+      <div>
+        <h1 class="font-display text-xl font-extrabold text-white leading-tight tracking-tight m-0 text-balance">Confecciones Perú</h1>
+        <p class="m-0 text-sm text-white/95">Empleos, mercadería y servicios de confección, en un solo lugar</p>
+      </div>
+    </div>
+    <button id="shareBtn" type="button" class="hidden items-center gap-2 text-sm font-bold px-3.5 py-2 rounded-full border border-white/50 bg-white/10 text-white hover:bg-white/20 transition-colors">
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.3 10.7l7.4-4.4M8.3 13.3l7.4 4.4"/></svg> Compartir
+    </button>
+  </div>
+</header>
+
+<div class="max-w-3xl mx-auto px-4">
+  <div class="flex gap-1.5 mt-4 p-1.5 rounded-2xl bg-white border border-stone-200 shadow-sm" role="tablist" aria-label="Sección">
+    <button class="mode-tab flex-1 py-3 rounded-xl text-ink font-extrabold text-[13px] uppercase tracking-wide cursor-pointer transition-all" data-view="empleos" aria-pressed="true">Empleos</button>
+    <button class="mode-tab flex-1 py-3 rounded-xl text-ink font-extrabold text-[13px] uppercase tracking-wide cursor-pointer transition-all" data-view="mercaderia" aria-pressed="false">Compra/Venta</button>
+    <button class="mode-tab flex-1 py-3 rounded-xl text-ink font-extrabold text-[13px] uppercase tracking-wide cursor-pointer transition-all" data-view="servicios" aria-pressed="false">Servicios</button>
+  </div>
+</div>
+
+<div id="empleosView">
+  <div class="max-w-3xl mx-auto px-4">
+    <div class="flex gap-2 overflow-x-auto scrollbar-none py-4" role="tablist" aria-label="Tipo de aviso">
+      <button class="tipo-tab whitespace-nowrap px-4 py-2.5 rounded-full text-[13px] font-bold border border-transparent bg-stone-100 text-ink cursor-pointer hover:-translate-y-0.5 transition-all" data-tipo="" aria-pressed="true">Todos</button>
+      <button class="tipo-tab whitespace-nowrap px-4 py-2.5 rounded-full text-[13px] font-bold border border-transparent bg-stone-100 text-ink cursor-pointer hover:-translate-y-0.5 transition-all" data-tipo="ofrezco" aria-pressed="false">Talleres con vacante</button>
+      <button class="tipo-tab whitespace-nowrap px-4 py-2.5 rounded-full text-[13px] font-bold border border-transparent bg-stone-100 text-ink cursor-pointer hover:-translate-y-0.5 transition-all" data-tipo="busco" aria-pressed="false">Costureros buscando trabajo</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2.5 mb-1 sm:[grid-template-columns:1.6fr_1fr_auto] sm:items-center">
+      <input id="searchInput" type="text" placeholder="Buscar (recta, jean, gamarra, operario...)" aria-label="Buscar avisos de empleo" class="col-span-2 sm:col-auto w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-thread focus-visible:outline-offset-2">
+      <select id="filterZona" aria-label="Filtrar por zona" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-thread focus-visible:outline-offset-2"><option value="">Toda zona</option></select>
+      <label class="flex items-center gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-full px-3.5 py-2.5 cursor-pointer"><input id="filterUrgente" type="checkbox" class="accent-thread w-4 h-4"> Solo urgentes</label>
+    </div>
+    <p id="resultCount" class="text-[12px] text-ink-soft mb-3"></p>
+  </div>
+
+  <main class="max-w-3xl mx-auto px-4 pb-24">
+    <div id="grid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <div id="emptyState" class="text-center py-16 px-4 text-ink-soft">
+      <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-thread-soft to-accent-soft text-thread-dark">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a1.5 1.5 0 1 1 1.5 1.5"/><path d="M12 4.5v2"/><path d="M12 6.5L4 11.5a1 1 0 0 0 .5 1.9h15a1 1 0 0 0 .5-1.9L12 6.5Z"/><path d="M6 14l-1 5h14l-1-5"/></svg>
+      </div>
+      <strong class="block text-ink font-bold mb-1">No hay avisos con esos filtros</strong>
+      <span>Prueba quitando algún filtro, o publica el primero.</span>
+    </div>
+  </main>
+</div>
+
+<div id="mercaderiaView" class="hidden">
+  <div class="max-w-3xl mx-auto px-4">
+    <div class="flex gap-2 overflow-x-auto scrollbar-none py-4" role="tablist" aria-label="Tipo de publicación">
+      <button class="tipo-tab whitespace-nowrap px-4 py-2.5 rounded-full text-[13px] font-bold border border-transparent bg-stone-100 text-ink cursor-pointer hover:-translate-y-0.5 transition-all" data-tipo="" aria-pressed="true">Todos</button>
+      <button class="tipo-tab whitespace-nowrap px-4 py-2.5 rounded-full text-[13px] font-bold border border-transparent bg-stone-100 text-ink cursor-pointer hover:-translate-y-0.5 transition-all" data-tipo="vendo" aria-pressed="false">Vendo mercadería</button>
+      <button class="tipo-tab whitespace-nowrap px-4 py-2.5 rounded-full text-[13px] font-bold border border-transparent bg-stone-100 text-ink cursor-pointer hover:-translate-y-0.5 transition-all" data-tipo="compro" aria-pressed="false">Busco comprar</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2.5 mb-1 sm:[grid-template-columns:1.6fr_1fr_auto] sm:items-center">
+      <input id="mercSearchInput" type="text" placeholder="Buscar (polos, jean, mayorista...)" aria-label="Buscar mercadería" class="col-span-2 sm:col-auto w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-thread focus-visible:outline-offset-2">
+      <select id="mercFilterZona" aria-label="Filtrar por zona" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-thread focus-visible:outline-offset-2"><option value="">Toda zona</option></select>
+      <label class="flex items-center gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-full px-3.5 py-2.5 cursor-pointer"><input id="mercFilterUrgente" type="checkbox" class="accent-thread w-4 h-4"> Solo urgentes</label>
+    </div>
+    <p id="mercResultCount" class="text-[12px] text-ink-soft mb-3"></p>
+  </div>
+
+  <main class="max-w-3xl mx-auto px-4 pb-24">
+    <div id="mercGrid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <div id="mercEmptyState" class="text-center py-16 px-4 text-ink-soft">
+      <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-thread-soft to-accent-soft text-thread-dark">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a1.5 1.5 0 1 1 1.5 1.5"/><path d="M12 4.5v2"/><path d="M12 6.5L4 11.5a1 1 0 0 0 .5 1.9h15a1 1 0 0 0 .5-1.9L12 6.5Z"/><path d="M6 14l-1 5h14l-1-5"/></svg>
+      </div>
+      <strong class="block text-ink font-bold mb-1">No hay publicaciones con esos filtros</strong>
+      <span>Prueba quitando algún filtro, o publica la primera.</span>
+    </div>
+  </main>
+</div>
+
+<div id="serviciosView" class="hidden">
+  <div class="max-w-3xl mx-auto px-4">
+    <div class="flex gap-2 overflow-x-auto scrollbar-none py-4" role="tablist" aria-label="Tipo de servicio">
+      <button class="tipo-tab whitespace-nowrap px-4 py-2.5 rounded-full text-[13px] font-bold border border-transparent bg-stone-100 text-ink cursor-pointer hover:-translate-y-0.5 transition-all" data-tipo="" aria-pressed="true">Todos</button>
+      <button class="tipo-tab whitespace-nowrap px-4 py-2.5 rounded-full text-[13px] font-bold border border-transparent bg-stone-100 text-ink cursor-pointer hover:-translate-y-0.5 transition-all" data-tipo="ofrezco" aria-pressed="false">Talleres que ofrecen servicio</button>
+      <button class="tipo-tab whitespace-nowrap px-4 py-2.5 rounded-full text-[13px] font-bold border border-transparent bg-stone-100 text-ink cursor-pointer hover:-translate-y-0.5 transition-all" data-tipo="busco" aria-pressed="false">Buscan taller</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-2.5 mb-1 sm:[grid-template-columns:1.6fr_1fr_auto] sm:items-center">
+      <input id="servicioSearchInput" type="text" placeholder="Buscar (corte, estampado, bordado...)" aria-label="Buscar servicios" class="col-span-2 sm:col-auto w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-thread focus-visible:outline-offset-2">
+      <select id="servicioFilterZona" aria-label="Filtrar por zona" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-thread focus-visible:outline-offset-2"><option value="">Toda zona</option></select>
+      <label class="flex items-center gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-full px-3.5 py-2.5 cursor-pointer"><input id="servicioFilterUrgente" type="checkbox" class="accent-thread w-4 h-4"> Solo urgentes</label>
+    </div>
+    <p id="servicioResultCount" class="text-[12px] text-ink-soft mb-3"></p>
+  </div>
+
+  <main class="max-w-3xl mx-auto px-4 pb-24">
+    <div id="servicioGrid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <div id="servicioEmptyState" class="text-center py-16 px-4 text-ink-soft">
+      <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-thread-soft to-accent-soft text-thread-dark">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a1.5 1.5 0 1 1 1.5 1.5"/><path d="M12 4.5v2"/><path d="M12 6.5L4 11.5a1 1 0 0 0 .5 1.9h15a1 1 0 0 0 .5-1.9L12 6.5Z"/><path d="M6 14l-1 5h14l-1-5"/></svg>
+      </div>
+      <strong class="block text-ink font-bold mb-1">No hay publicaciones con esos filtros</strong>
+      <span>Prueba quitando algún filtro, o publica la primera.</span>
+    </div>
+  </main>
+</div>
+
+<button id="fab" type="button" aria-label="Publicar aviso" class="fixed right-4 bottom-4 z-30 w-14 h-14 rounded-full text-white border-[3px] border-white text-xl cursor-pointer transition-transform">
+  <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<div id="modal">
+  <form id="publishForm" class="bg-white text-ink w-full max-w-lg max-h-[92vh] overflow-y-auto p-6 rounded-t-[1.6rem] sm:rounded-[1.6rem]">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="modalTitle" class="font-display text-lg font-semibold m-0 text-balance">Publicar aviso</h2>
+      <button type="button" id="closeModal" aria-label="Cerrar" class="w-8 h-8 rounded-full border-0 bg-transparent text-ink-soft hover:bg-stone-100 hover:text-ink cursor-pointer"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+
+    <div class="mb-4">
+      <label id="tipoLabel" class="block text-[14px] font-semibold mb-2">¿Qué quieres publicar?</label>
+      <div class="tipo-choice grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="tipoLabel">
+        <label><input type="radio" name="tipo" value="ofrezco" checked><span>Necesito personal (taller)</span></label>
+        <label><input type="radio" name="tipo" value="busco"><span>Busco trabajo (costurero/a)</span></label>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label for="formFoto" class="block text-[14px] font-semibold mb-2">Fotos (hasta 6, opcional)</label>
+      <div>
+        <input id="formFoto" type="file" accept="image/*" multiple class="absolute opacity-0 w-px h-px overflow-hidden">
+        <label for="formFoto" id="formFotoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Agregar foto</label>
+        <div id="formFotoPreviewList" class="mt-2 flex flex-wrap gap-2 empty:mt-0"></div>
+      </div>
+      <p class="text-[12px] text-ink-soft mt-1.5">El taller puede mostrar fotos del taller o del trabajo; el costurero/a puede mostrar su propio trabajo. Se comprimen automáticamente.</p>
+      <label id="formFotoConfirmWrap" class="hidden flex items-start gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-2xl px-3.5 py-3 mt-3">
+        <input id="formFotoConfirm" type="checkbox" class="accent-thread w-4 h-4 mt-0.5 shrink-0"> Confirmo que mis fotos son apropiadas para el aviso (nada de contenido explícito u ofensivo)
+      </label>
+    </div>
+
+    <p class="text-[11px] font-bold uppercase tracking-wide text-thread-dark mt-0 mb-3 pt-0 border-t-0">El trabajo</p>
+
+    <div class="mb-4">
+      <label id="perfilLabel" class="block text-[14px] font-semibold mb-2">Perfil de trabajo</label>
+      <div id="perfilChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="perfilLabel"></div>
+    </div>
+
+    <div class="mb-4">
+      <label id="prendaLabel" class="block text-[14px] font-semibold mb-2">Prenda(s) que trabaja</label>
+      <div id="prendaChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="prendaLabel"></div>
+      <div id="prendaOtroField" class="otro-field hidden mt-2">
+        <input id="prendaOtro" type="text" placeholder="¿Qué otra prenda? (separa con coma si son varias)" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label id="telaLabel" class="block text-[14px] font-semibold mb-2">Tela que maneja</label>
+      <div id="telaChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="telaLabel"></div>
+      <div id="telaOtroField" class="otro-field hidden mt-2">
+        <input id="telaOtro" type="text" placeholder="¿Qué otra tela?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label for="formExperiencia" class="block text-[14px] font-semibold mb-2">Años de experiencia</label>
+      <select id="formExperiencia" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5"><option value="">No especificar</option></select>
+    </div>
+
+    <div id="maquinaSection">
+      <div class="mb-4">
+        <label id="maquinaLabel" class="block text-[14px] font-semibold mb-2">Máquina(s) que domina</label>
+        <div id="maquinaChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="maquinaLabel"></div>
+        <div id="maquinaOtroField" class="otro-field hidden mt-2">
+          <input id="maquinaOtro" type="text" placeholder="¿Qué otra máquina?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+        </div>
+      </div>
+      <div class="mb-4">
+        <label id="operacionLabel" class="block text-[14px] font-semibold mb-2">Operación</label>
+        <div id="operacionChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="operacionLabel"></div>
+        <div id="operacionOtroField" class="otro-field hidden mt-2">
+          <input id="operacionOtro" type="text" placeholder="¿Qué otra operación?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+        </div>
+      </div>
+    </div>
+
+    <div id="manualSection">
+      <div class="mb-4">
+        <label id="manualLabel" class="block text-[14px] font-semibold mb-2">Labor manual</label>
+        <div id="manualChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="manualLabel"></div>
+        <div id="manualOtroField" class="otro-field hidden mt-2">
+          <input id="manualOtro" type="text" placeholder="¿Qué otra labor manual?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+        </div>
+      </div>
+    </div>
+
+    <div id="tallerSection" class="mb-4">
+      <label for="formTamanoTaller" class="block text-[14px] font-semibold mb-2">Tamaño del taller</label>
+      <select id="formTamanoTaller" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5"><option value="">No especificar</option></select>
+    </div>
+
+    <p class="text-[11px] font-bold uppercase tracking-wide text-thread-dark mt-6 mb-3 pt-3.5 border-t border-stone-200">Pago y horario</p>
+
+    <div class="mb-4">
+      <label id="formZonaLabel" for="formZona" class="block text-[14px] font-semibold mb-2">Zona</label>
+      <select id="formZona" required class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5"></select>
+      <div id="zonaOtroField" class="otro-field hidden mt-2">
+        <input id="zonaOtro" type="text" placeholder="¿Qué distrito/zona?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label id="modalidadPagoLabel" class="block text-[14px] font-semibold mb-2">Modalidad de pago (puedes marcar varias)</label>
+      <div id="modalidadPagoChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="modalidadPagoLabel"></div>
+      <div id="modalidadPagoDetalleField" class="otro-field hidden mt-2">
+        <input id="modalidadPagoDetalle" type="text" placeholder="¿Cómo prefieres que te paguen?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div id="zonaTrabajoSection" class="hidden mb-4">
+      <label id="zonaTrabajoLabel" class="block text-[14px] font-semibold mb-2">¿En qué otras zonas te gustaría trabajar? (opcional)</label>
+      <div id="zonaTrabajoChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="zonaTrabajoLabel"></div>
+      <div id="zonaTrabajoOtroField" class="otro-field hidden mt-2">
+        <input id="zonaTrabajoOtro" type="text" placeholder="¿Qué otra zona?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+      <p class="text-[12px] text-ink-soft mt-1.5">Si no marcas ninguna, se asume que solo te interesa cerca de donde vives.</p>
+    </div>
+
+    <div class="mb-4">
+      <label for="formPago" class="block text-[14px] font-semibold mb-2">Monto (opcional)</label>
+      <input id="formPago" type="text" placeholder="S/1300 semanal, S/0.30 por operación..." class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+    </div>
+
+    <div class="mb-4">
+      <label id="dispoLabel" class="block text-[14px] font-semibold mb-2">Disponibilidad</label>
+      <div id="disponibilidadChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="dispoLabel"></div>
+      <div id="disponibilidadOtroField" class="otro-field hidden mt-2">
+        <input id="disponibilidadOtro" type="text" placeholder="Cuéntanos tu horario o disponibilidad exacta" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <p class="text-[11px] font-bold uppercase tracking-wide text-thread-dark mt-6 mb-3 pt-3.5 border-t border-stone-200">Contacto</p>
+
+    <div class="mb-4">
+      <label for="formContacto" class="block text-[14px] font-semibold mb-2">Nombre / taller</label>
+      <input id="formContacto" type="text" required placeholder="Ej: Taller Confecciones Ate" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+    </div>
+
+    <div class="mb-4">
+      <label for="formWhatsapp" class="block text-[14px] font-semibold mb-2">WhatsApp</label>
+      <input id="formWhatsapp" type="tel" required placeholder="9XXXXXXXX" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      <p class="text-[12px] text-ink-soft mt-1.5">9 dígitos, sin +51. Quien te contacte escribirá directo a este número.</p>
+    </div>
+
+    <div class="mb-4">
+      <label for="formDocumento" class="block text-[14px] font-semibold mb-2">DNI o RUC (opcional)</label>
+      <input id="formDocumento" type="text" inputmode="numeric" placeholder="DNI: 8 dígitos · RUC: 11 dígitos" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      <p class="text-[12px] text-ink-soft mt-1.5">Da más confianza. El RUC se muestra completo (es público); el DNI nunca se muestra, solo aparece como "registrado".</p>
+    </div>
+
+    <div class="mb-4">
+      <label for="formDescripcion" class="block text-[14px] font-semibold mb-2">Información extra (opcional)</label>
+      <textarea id="formDescripcion" rows="2" placeholder="Dónde has trabajado antes, referencias, dirección exacta, horario específico..." class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft"></textarea>
+    </div>
+
+    <label class="flex items-center gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-full px-3.5 py-2.5 mb-5">
+      <input id="formUrgente" type="checkbox" class="accent-thread w-4 h-4"> Marcar como urgente
+    </label>
+
+    <button type="submit" id="submitBtn" class="submit-btn w-full py-3.5 border-0 rounded-full text-white font-extrabold text-[15px] cursor-pointer transition-transform">Publicar aviso</button>
+    <p class="text-[11px] text-center text-ink-soft mt-3">Tu aviso dura publicado gratis 7 días. ¿Quieres que se destaque (aparece primero) o dure 7 días más? Yapea <strong>S/10</strong> a <strong>926924581</strong> y <a href="#" class="yape-confirm-link underline">compártenos el comprobante por WhatsApp a ese mismo número</a>.</p>
+  </form>
+</div>
+
+<div id="mercModal">
+  <form id="mercForm" class="bg-white text-ink w-full max-w-lg max-h-[92vh] overflow-y-auto p-6 rounded-t-[1.6rem] sm:rounded-[1.6rem]">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="mercModalTitle" class="font-display text-lg font-semibold m-0 text-balance">Publicar mercadería</h2>
+      <button type="button" id="mercCloseModal" aria-label="Cerrar" class="w-8 h-8 rounded-full border-0 bg-transparent text-ink-soft hover:bg-stone-100 hover:text-ink cursor-pointer"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+
+    <div class="mb-4">
+      <label id="mercTipoLabel" class="block text-[14px] font-semibold mb-2">¿Qué quieres publicar?</label>
+      <div class="tipo-choice grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="mercTipoLabel">
+        <label><input type="radio" name="mercTipo" value="vendo" checked><span>Vendo mercadería</span></label>
+        <label><input type="radio" name="mercTipo" value="compro"><span>Busco comprar</span></label>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label for="mercFoto" class="block text-[14px] font-semibold mb-2">Fotos (hasta 6, opcional)</label>
+      <div>
+        <input id="mercFoto" type="file" accept="image/*" multiple class="absolute opacity-0 w-px h-px overflow-hidden">
+        <label for="mercFoto" id="mercFotoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Agregar foto</label>
+        <div id="mercFotoPreviewList" class="mt-2 flex flex-wrap gap-2 empty:mt-0"></div>
+      </div>
+      <p class="text-[12px] text-ink-soft mt-1.5">Se comprimen automáticamente.</p>
+      <label id="mercFotoConfirmWrap" class="hidden flex items-start gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-2xl px-3.5 py-3 mt-3">
+        <input id="mercFotoConfirm" type="checkbox" class="accent-thread w-4 h-4 mt-0.5 shrink-0"> Confirmo que mis fotos son apropiadas para el aviso (nada de contenido explícito u ofensivo)
+      </label>
+    </div>
+
+    <div class="mb-4">
+      <label for="mercVideo" class="block text-[14px] font-semibold mb-2">Video (opcional, hasta 25 MB)</label>
+      <div>
+        <input id="mercVideo" type="file" accept="video/*" class="absolute opacity-0 w-px h-px overflow-hidden">
+        <label for="mercVideo" id="mercVideoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> Agregar video</label>
+        <div id="mercVideoPreview" class="mt-2 empty:mt-0"></div>
+      </div>
+      <p class="text-[12px] text-ink-soft mt-1.5">Un solo video, hasta 25 MB. No se comprime — si tu celular graba muy pesado, graba uno más corto o de menor calidad.</p>
+      <label id="mercVideoConfirmWrap" class="hidden flex items-start gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-2xl px-3.5 py-3 mt-3">
+        <input id="mercVideoConfirm" type="checkbox" class="accent-thread w-4 h-4 mt-0.5 shrink-0"> Confirmo que mi video es apropiado para el aviso (nada de contenido explícito u ofensivo)
+      </label>
+    </div>
+
+    <div class="mb-4">
+      <label id="mercItemLabel" class="block text-[14px] font-semibold mb-2">¿Qué prenda(s) o insumo(s)?</label>
+      <div id="mercItemChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="mercItemLabel"></div>
+      <div id="mercItemOtroField" class="otro-field hidden mt-2">
+        <input id="mercItemOtro" type="text" placeholder="¿Qué otra prenda o insumo? (separa con coma si son varios)" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label id="mercTallaLabel" class="block text-[14px] font-semibold mb-2">Talla(s)</label>
+      <div id="mercTallaChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="mercTallaLabel"></div>
+      <div id="mercTallaOtroField" class="otro-field hidden mt-2">
+        <input id="mercTallaOtro" type="text" placeholder="¿Qué otra talla? (ej: 28, 30, 32...)" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label id="mercColorLabel" class="block text-[14px] font-semibold mb-2">Color(es)</label>
+      <div id="mercColorChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="mercColorLabel"></div>
+      <div id="mercColorOtroField" class="otro-field hidden mt-2">
+        <input id="mercColorOtro" type="text" placeholder="¿Qué otro color?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4 grid grid-cols-2 gap-2.5">
+      <div>
+        <label for="mercCantidad" class="block text-[14px] font-semibold mb-2">Cantidad</label>
+        <input id="mercCantidad" type="text" placeholder="500 unidades, por rollo..." class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+      <div>
+        <label for="mercVentaTipo" class="block text-[14px] font-semibold mb-2">Venta</label>
+        <select id="mercVentaTipo" required class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5"><option value="">Selecciona...</option></select>
+      </div>
+    </div>
+
+    <div id="precioMayorField" class="hidden mb-4">
+      <label for="mercPrecioMayor" class="block text-[14px] font-semibold mb-2">Precio por mayor</label>
+      <input id="mercPrecioMayor" type="text" placeholder="S/15 por unidad" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+    </div>
+
+    <div id="precioMenorField" class="hidden mb-4">
+      <label for="mercPrecioMenor" class="block text-[14px] font-semibold mb-2">Precio por menor</label>
+      <input id="mercPrecioMenor" type="text" placeholder="S/25 por unidad" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+    </div>
+
+    <div class="mb-4">
+      <label id="mercModalidadVentaLabel" class="block text-[14px] font-semibold mb-2">Modalidad de venta</label>
+      <div id="mercModalidadVentaChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="mercModalidadVentaLabel"></div>
+      <div id="mercModalidadVentaOtroField" class="otro-field hidden mt-2">
+        <input id="mercModalidadVentaOtro" type="text" placeholder="¿Qué otra modalidad?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label for="mercZona" class="block text-[14px] font-semibold mb-2">Zona</label>
+      <select id="mercZona" required class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5"></select>
+      <div id="mercZonaOtroField" class="otro-field hidden mt-2">
+        <input id="mercZonaOtro" type="text" placeholder="¿Qué distrito/zona?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label for="mercContacto" class="block text-[14px] font-semibold mb-2">Nombre</label>
+      <input id="mercContacto" type="text" required placeholder="Tu nombre o el de tu negocio" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+    </div>
+
+    <div class="mb-4">
+      <label for="mercWhatsapp" class="block text-[14px] font-semibold mb-2">WhatsApp</label>
+      <input id="mercWhatsapp" type="tel" required placeholder="9XXXXXXXX" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      <p class="text-[12px] text-ink-soft mt-1.5">9 dígitos, sin +51. Las fotos y videos los mandas directo por ese chat una vez que te escriban.</p>
+    </div>
+
+    <div class="mb-4">
+      <label for="mercDocumento" class="block text-[14px] font-semibold mb-2">DNI o RUC (opcional)</label>
+      <input id="mercDocumento" type="text" inputmode="numeric" placeholder="DNI: 8 dígitos · RUC: 11 dígitos" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      <p class="text-[12px] text-ink-soft mt-1.5">Da más confianza. El RUC se muestra completo (es público); el DNI nunca se muestra, solo aparece como "registrado".</p>
+    </div>
+
+    <div class="mb-4">
+      <label for="mercDescripcion" class="block text-[14px] font-semibold mb-2">Información extra (opcional)</label>
+      <textarea id="mercDescripcion" rows="2" placeholder="Marca, estado de la mercadería, cualquier otro detalle..." class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft"></textarea>
+    </div>
+
+    <label class="flex items-center gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-full px-3.5 py-2.5 mb-5">
+      <input id="mercUrgente" type="checkbox" class="accent-thread w-4 h-4"> Marcar como urgente (ej. liquidación)
+    </label>
+
+    <button type="submit" id="mercSubmitBtn" class="submit-btn w-full py-3.5 border-0 rounded-full text-white font-extrabold text-[15px] cursor-pointer transition-transform">Publicar</button>
+    <p class="text-[11px] text-center text-ink-soft mt-3">Tu aviso dura publicado gratis 7 días. ¿Quieres que se destaque (aparece primero) o dure 7 días más? Yapea <strong>S/10</strong> a <strong>926924581</strong> y <a href="#" class="yape-confirm-link underline">compártenos el comprobante por WhatsApp a ese mismo número</a>.</p>
+  </form>
+</div>
+
+<div id="servicioModal">
+  <form id="servicioForm" class="bg-white text-ink w-full max-w-lg max-h-[92vh] overflow-y-auto p-6 rounded-t-[1.6rem] sm:rounded-[1.6rem]">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="servicioModalTitle" class="font-display text-lg font-semibold m-0 text-balance">Publicar servicio</h2>
+      <button type="button" id="servicioCloseModal" aria-label="Cerrar" class="w-8 h-8 rounded-full border-0 bg-transparent text-ink-soft hover:bg-stone-100 hover:text-ink cursor-pointer"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+
+    <div class="mb-4">
+      <label id="servicioTipoLabel" class="block text-[14px] font-semibold mb-2">¿Qué quieres publicar?</label>
+      <div class="tipo-choice grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="servicioTipoLabel">
+        <label><input type="radio" name="servicioTipo" value="ofrezco" checked><span>Ofrezco el servicio (taller)</span></label>
+        <label><input type="radio" name="servicioTipo" value="busco"><span>Busco quién me lo haga</span></label>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label for="servicioFoto" class="block text-[14px] font-semibold mb-2">Fotos (hasta 6, opcional)</label>
+      <div>
+        <input id="servicioFoto" type="file" accept="image/*" multiple class="absolute opacity-0 w-px h-px overflow-hidden">
+        <label for="servicioFoto" id="servicioFotoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Agregar foto</label>
+        <div id="servicioFotoPreviewList" class="mt-2 flex flex-wrap gap-2 empty:mt-0"></div>
+      </div>
+      <p class="text-[12px] text-ink-soft mt-1.5">El taller puede mostrar fotos de su maquinaria o de trabajos ya hechos. Se comprimen automáticamente.</p>
+      <label id="servicioFotoConfirmWrap" class="hidden flex items-start gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-2xl px-3.5 py-3 mt-3">
+        <input id="servicioFotoConfirm" type="checkbox" class="accent-thread w-4 h-4 mt-0.5 shrink-0"> Confirmo que mis fotos son apropiadas para el aviso (nada de contenido explícito u ofensivo)
+      </label>
+    </div>
+
+    <div class="mb-4">
+      <label id="servicioTipoServicioLabel" class="block text-[14px] font-semibold mb-2">Tipo de servicio</label>
+      <div id="servicioTipoServicioChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="servicioTipoServicioLabel"></div>
+      <div id="servicioTipoServicioOtroField" class="otro-field hidden mt-2">
+        <input id="servicioTipoServicioOtro" type="text" placeholder="¿Qué otro servicio? (separa con coma si son varios)" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label id="servicioPrendaLabel" class="block text-[14px] font-semibold mb-2">Prenda(s) que trabaja (opcional)</label>
+      <div id="servicioPrendaChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="servicioPrendaLabel"></div>
+      <div id="servicioPrendaOtroField" class="otro-field hidden mt-2">
+        <input id="servicioPrendaOtro" type="text" placeholder="¿Qué otra prenda? (separa con coma si son varias)" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label for="servicioCapacidad" class="block text-[14px] font-semibold mb-2">Capacidad de producción (opcional)</label>
+      <input id="servicioCapacidad" type="text" placeholder="500 docenas/mes, 2000 unidades por semana..." class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+    </div>
+
+    <div class="mb-4">
+      <label for="servicioZona" class="block text-[14px] font-semibold mb-2">Zona</label>
+      <select id="servicioZona" required class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5"></select>
+      <div id="servicioZonaOtroField" class="otro-field hidden mt-2">
+        <input id="servicioZonaOtro" type="text" placeholder="¿Qué distrito/zona?" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label for="servicioPrecio" class="block text-[14px] font-semibold mb-2">Precio (opcional)</label>
+      <input id="servicioPrecio" type="text" placeholder="S/1.20 por prenda, a tratar según volumen..." class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+    </div>
+
+    <div class="mb-4">
+      <label for="servicioContacto" class="block text-[14px] font-semibold mb-2">Nombre / taller / empresa</label>
+      <input id="servicioContacto" type="text" required placeholder="Ej: Taller Confecciones Ate" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+    </div>
+
+    <div class="mb-4">
+      <label for="servicioWhatsapp" class="block text-[14px] font-semibold mb-2">WhatsApp</label>
+      <input id="servicioWhatsapp" type="tel" required placeholder="9XXXXXXXX" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      <p class="text-[12px] text-ink-soft mt-1.5">9 dígitos, sin +51. Quien te contacte escribirá directo a este número.</p>
+    </div>
+
+    <div class="mb-4">
+      <label for="servicioDocumento" class="block text-[14px] font-semibold mb-2">DNI o RUC (opcional)</label>
+      <input id="servicioDocumento" type="text" inputmode="numeric" placeholder="DNI: 8 dígitos · RUC: 11 dígitos" class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft">
+      <p class="text-[12px] text-ink-soft mt-1.5">Da más confianza. El RUC se muestra completo (es público); el DNI nunca se muestra, solo aparece como "registrado".</p>
+    </div>
+
+    <div class="mb-4">
+      <label for="servicioDescripcion" class="block text-[14px] font-semibold mb-2">Información extra (opcional)</label>
+      <textarea id="servicioDescripcion" rows="2" placeholder="Maquinaria con la que cuenta, tiempos de entrega, referencias..." class="w-full text-[14px] text-ink bg-white border border-stone-200 rounded-2xl px-3.5 py-2.5 placeholder:text-ink-soft"></textarea>
+    </div>
+
+    <label class="flex items-center gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-full px-3.5 py-2.5 mb-5">
+      <input id="servicioUrgente" type="checkbox" class="accent-thread w-4 h-4"> Marcar como urgente
+    </label>
+
+    <button type="submit" id="servicioSubmitBtn" class="submit-btn w-full py-3.5 border-0 rounded-full text-white font-extrabold text-[15px] cursor-pointer transition-transform">Publicar servicio</button>
+    <p class="text-[11px] text-center text-ink-soft mt-3">Tu aviso dura publicado gratis 7 días. ¿Quieres que se destaque (aparece primero) o dure 7 días más? Yapea <strong>S/10</strong> a <strong>926924581</strong> y <a href="#" class="yape-confirm-link underline">compártenos el comprobante por WhatsApp a ese mismo número</a>.</p>
+  </form>
+</div>
+
+<template id="cardTemplate">
+  <article class="card">
+    <div class="card-photos flex gap-1.5 overflow-x-auto empty:hidden"></div>
+    <div class="flex items-center justify-between gap-2">
+      <span class="badge tipo-badge text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full"></span>
+      <div class="flex items-center gap-1.5">
+        <span class="badge destacado-badge hidden text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-accent-soft text-accent-dark">★ Destacado</span>
+        <span class="badge vencido-badge hidden text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-stone-200 text-ink-soft">Vencido</span>
+        <span class="badge badge-urgente urgente-badge text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">Urgente</span>
+      </div>
+    </div>
+    <div class="owner-actions hidden flex gap-1 justify-end">
+      <button type="button" class="ghost-btn edit-btn flex items-center gap-1 text-[12px] font-semibold bg-transparent border-0 text-ink-soft cursor-pointer px-1.5 py-1 rounded-lg hover:bg-stone-100 hover:text-thread-dark"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+      <button type="button" class="ghost-btn delete-btn flex items-center gap-1 text-[12px] font-semibold bg-transparent border-0 text-ink-soft cursor-pointer px-1.5 py-1 rounded-lg hover:bg-stone-100 hover:text-red-600"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> Eliminar</button>
+    </div>
+    <h3 class="contacto-name text-[18px] font-bold m-0 leading-tight"></h3>
+    <p class="zona-line flex items-center gap-1.5 text-[13px] text-ink-soft m-0"><svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span></span></p>
+    <p class="doc-line flex items-center gap-1 text-[13px] font-bold text-ofrezco m-0"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span></span></p>
+    <div class="perfil-chips flex flex-wrap gap-1.5 empty:hidden"></div>
+    <div class="meta-lines flex flex-col gap-0.5"></div>
+    <div class="skill-chips flex flex-wrap gap-1.5 empty:hidden"></div>
+    <p class="pago-text text-[14px] font-bold m-0"></p>
+    <div class="disponibilidad-chips flex flex-wrap gap-1.5 empty:hidden"></div>
+    <p class="desc-text text-[13px] text-ink-soft m-0 leading-relaxed"></p>
+    <a target="_blank" rel="noopener" class="wa-link mt-1 flex items-center justify-center gap-2 text-white no-underline font-extrabold text-[14px] py-3 rounded-full transition-transform"><svg class="icon" width="17" height="17" viewBox="0 0 32 32" fill="currentColor"><path d="M16.04 3C9.37 3 3.97 8.4 3.97 15.07c0 2.36.66 4.56 1.8 6.44L3 29l7.68-2.02a12.03 12.03 0 0 0 5.36 1.26h.01c6.67 0 12.07-5.4 12.07-12.07C28.12 8.5 22.71 3.1 16.04 3zm0 22.02h-.01a10.1 10.1 0 0 1-5.14-1.4l-.37-.22-3.83 1 1.02-3.73-.24-.38a9.98 9.98 0 0 1-1.53-5.32c0-5.53 4.5-10.03 10.05-10.03 2.69 0 5.21 1.05 7.1 2.95a9.94 9.94 0 0 1 2.95 7.1c0 5.53-4.5 10.03-10.02 10.03zm5.5-7.5c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.35.22-.65.08-.3-.15-1.26-.46-2.4-1.47-.89-.79-1.48-1.77-1.66-2.07-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.65-.94-2.26-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.53.08-.8.38-.28.3-1.05 1.02-1.05 2.5s1.08 2.9 1.23 3.1c.15.2 2.13 3.24 5.16 4.55.72.31 1.28.5 1.72.64.72.23 1.38.2 1.9.12.58-.09 1.78-.73 2.03-1.43.25-.7.25-1.3.18-1.43-.07-.13-.27-.2-.57-.35z"/></svg> Contactar por WhatsApp</a>
+    <button type="button" class="report-link block mx-auto mt-0.5 bg-transparent border-0 text-ink-soft text-[11px] underline cursor-pointer p-0.5 hover:text-thread-dark">Reportar este aviso</button>
+    <p class="owner-yape hidden text-[11px] text-ink-soft/70 m-0 mt-0.5 text-right">Destacar/extender (S/10): <a href="#" class="owner-yape-link underline">avisar por WhatsApp</a></p>
+  </article>
+</template>
+
+<template id="mercCardTemplate">
+  <article class="card">
+    <div class="card-photos flex gap-1.5 overflow-x-auto empty:hidden"></div>
+    <video class="merc-video w-full rounded-2xl bg-stone-100" controls muted playsinline></video>
+    <div class="flex items-center justify-between gap-2">
+      <span class="badge tipo-badge text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full"></span>
+      <div class="flex items-center gap-1.5">
+        <span class="badge destacado-badge hidden text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-accent-soft text-accent-dark">★ Destacado</span>
+        <span class="badge vencido-badge hidden text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-stone-200 text-ink-soft">Vencido</span>
+        <span class="badge badge-urgente urgente-badge text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">Urgente</span>
+      </div>
+    </div>
+    <div class="owner-actions hidden flex gap-1 justify-end">
+      <button type="button" class="ghost-btn edit-btn flex items-center gap-1 text-[12px] font-semibold bg-transparent border-0 text-ink-soft cursor-pointer px-1.5 py-1 rounded-lg hover:bg-stone-100 hover:text-thread-dark"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+      <button type="button" class="ghost-btn delete-btn flex items-center gap-1 text-[12px] font-semibold bg-transparent border-0 text-ink-soft cursor-pointer px-1.5 py-1 rounded-lg hover:bg-stone-100 hover:text-red-600"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> Eliminar</button>
+    </div>
+    <h3 class="contacto-name text-[18px] font-bold m-0 leading-tight"></h3>
+    <p class="zona-line flex items-center gap-1.5 text-[13px] text-ink-soft m-0"><svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span></span></p>
+    <p class="doc-line flex items-center gap-1 text-[13px] font-bold text-ofrezco m-0"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span></span></p>
+    <div class="item-chips flex flex-wrap gap-1.5 empty:hidden"></div>
+    <div class="talla-chips flex flex-wrap gap-1.5 empty:hidden"></div>
+    <div class="color-chips flex flex-wrap gap-1.5 empty:hidden"></div>
+    <div class="meta-lines flex flex-col gap-0.5"></div>
+    <div class="modalidad-venta-chips flex flex-wrap gap-1.5 empty:hidden"></div>
+    <p class="desc-text text-[13px] text-ink-soft m-0 leading-relaxed"></p>
+    <a target="_blank" rel="noopener" class="wa-link mt-1 flex items-center justify-center gap-2 text-white no-underline font-extrabold text-[14px] py-3 rounded-full transition-transform"><svg class="icon" width="17" height="17" viewBox="0 0 32 32" fill="currentColor"><path d="M16.04 3C9.37 3 3.97 8.4 3.97 15.07c0 2.36.66 4.56 1.8 6.44L3 29l7.68-2.02a12.03 12.03 0 0 0 5.36 1.26h.01c6.67 0 12.07-5.4 12.07-12.07C28.12 8.5 22.71 3.1 16.04 3zm0 22.02h-.01a10.1 10.1 0 0 1-5.14-1.4l-.37-.22-3.83 1 1.02-3.73-.24-.38a9.98 9.98 0 0 1-1.53-5.32c0-5.53 4.5-10.03 10.05-10.03 2.69 0 5.21 1.05 7.1 2.95a9.94 9.94 0 0 1 2.95 7.1c0 5.53-4.5 10.03-10.02 10.03zm5.5-7.5c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.35.22-.65.08-.3-.15-1.26-.46-2.4-1.47-.89-.79-1.48-1.77-1.66-2.07-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.65-.94-2.26-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.53.08-.8.38-.28.3-1.05 1.02-1.05 2.5s1.08 2.9 1.23 3.1c.15.2 2.13 3.24 5.16 4.55.72.31 1.28.5 1.72.64.72.23 1.38.2 1.9.12.58-.09 1.78-.73 2.03-1.43.25-.7.25-1.3.18-1.43-.07-.13-.27-.2-.57-.35z"/></svg> Contactar por WhatsApp</a>
+    <button type="button" class="report-link block mx-auto mt-0.5 bg-transparent border-0 text-ink-soft text-[11px] underline cursor-pointer p-0.5 hover:text-thread-dark">Reportar este aviso</button>
+    <p class="owner-yape hidden text-[11px] text-ink-soft/70 m-0 mt-0.5 text-right">Destacar/extender (S/10): <a href="#" class="owner-yape-link underline">avisar por WhatsApp</a></p>
+  </article>
+</template>
+
+<template id="servicioCardTemplate">
+  <article class="card">
+    <div class="card-photos flex gap-1.5 overflow-x-auto empty:hidden"></div>
+    <div class="flex items-center justify-between gap-2">
+      <span class="badge tipo-badge text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full"></span>
+      <div class="flex items-center gap-1.5">
+        <span class="badge destacado-badge hidden text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-accent-soft text-accent-dark">★ Destacado</span>
+        <span class="badge vencido-badge hidden text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-stone-200 text-ink-soft">Vencido</span>
+        <span class="badge badge-urgente urgente-badge text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full">Urgente</span>
+      </div>
+    </div>
+    <div class="owner-actions hidden flex gap-1 justify-end">
+      <button type="button" class="ghost-btn edit-btn flex items-center gap-1 text-[12px] font-semibold bg-transparent border-0 text-ink-soft cursor-pointer px-1.5 py-1 rounded-lg hover:bg-stone-100 hover:text-thread-dark"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> Editar</button>
+      <button type="button" class="ghost-btn delete-btn flex items-center gap-1 text-[12px] font-semibold bg-transparent border-0 text-ink-soft cursor-pointer px-1.5 py-1 rounded-lg hover:bg-stone-100 hover:text-red-600"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> Eliminar</button>
+    </div>
+    <h3 class="contacto-name text-[18px] font-bold m-0 leading-tight"></h3>
+    <p class="zona-line flex items-center gap-1.5 text-[13px] text-ink-soft m-0"><svg class="icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7.5 7-12a7 7 0 1 0-14 0c0 4.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span></span></p>
+    <p class="doc-line flex items-center gap-1 text-[13px] font-bold text-ofrezco m-0"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><span></span></p>
+    <div class="tipo-servicio-chips flex flex-wrap gap-1.5 empty:hidden"></div>
+    <div class="prenda-chips flex flex-wrap gap-1.5 empty:hidden"></div>
+    <div class="meta-lines flex flex-col gap-0.5"></div>
+    <p class="desc-text text-[13px] text-ink-soft m-0 leading-relaxed"></p>
+    <a target="_blank" rel="noopener" class="wa-link mt-1 flex items-center justify-center gap-2 text-white no-underline font-extrabold text-[14px] py-3 rounded-full transition-transform"><svg class="icon" width="17" height="17" viewBox="0 0 32 32" fill="currentColor"><path d="M16.04 3C9.37 3 3.97 8.4 3.97 15.07c0 2.36.66 4.56 1.8 6.44L3 29l7.68-2.02a12.03 12.03 0 0 0 5.36 1.26h.01c6.67 0 12.07-5.4 12.07-12.07C28.12 8.5 22.71 3.1 16.04 3zm0 22.02h-.01a10.1 10.1 0 0 1-5.14-1.4l-.37-.22-3.83 1 1.02-3.73-.24-.38a9.98 9.98 0 0 1-1.53-5.32c0-5.53 4.5-10.03 10.05-10.03 2.69 0 5.21 1.05 7.1 2.95a9.94 9.94 0 0 1 2.95 7.1c0 5.53-4.5 10.03-10.02 10.03zm5.5-7.5c-.3-.15-1.78-.88-2.06-.98-.28-.1-.48-.15-.68.15-.2.3-.78.98-.96 1.18-.18.2-.35.22-.65.08-.3-.15-1.26-.46-2.4-1.47-.89-.79-1.48-1.77-1.66-2.07-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.08-.15-.68-1.65-.94-2.26-.25-.6-.5-.5-.68-.5h-.58c-.2 0-.53.08-.8.38-.28.3-1.05 1.02-1.05 2.5s1.08 2.9 1.23 3.1c.15.2 2.13 3.24 5.16 4.55.72.31 1.28.5 1.72.64.72.23 1.38.2 1.9.12.58-.09 1.78-.73 2.03-1.43.25-.7.25-1.3.18-1.43-.07-.13-.27-.2-.57-.35z"/></svg> Contactar por WhatsApp</a>
+    <button type="button" class="report-link block mx-auto mt-0.5 bg-transparent border-0 text-ink-soft text-[11px] underline cursor-pointer p-0.5 hover:text-thread-dark">Reportar este aviso</button>
+    <p class="owner-yape hidden text-[11px] text-ink-soft/70 m-0 mt-0.5 text-right">Destacar/extender (S/10): <a href="#" class="owner-yape-link underline">avisar por WhatsApp</a></p>
+  </article>
+</template>
+
+<template id="metaLineTemplate"><p class="meta-line text-[13px] text-ink-soft m-0"><span></span></p></template>
+
+<script src="app.js"></script>
+</body>
+</html>
