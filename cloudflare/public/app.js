@@ -30,6 +30,15 @@ async function api(method, path, body, llave) {
 const DIAS_GRATIS = 7;
 const DIAS_EXTENSION_PAGADA = 7; // referencia para el README/SQL de "marcar destacado" — no la lee el código.
 
+// Mientras haya pocos avisos, los que pasaron sus 7 días se quedan visibles con la
+// etiqueta "Caducado" (al final de la lista). Cuando haya bastantes, poner en false
+// y vuelven a esconderse. Los que nacen vencidos (2.º aviso gratis sin pagar,
+// vence <= fecha) siguen ocultos siempre.
+const MOSTRAR_CADUCADOS = true;
+const esCaducado = l => !!(l.vence && l.vence < Date.now());
+const ocultarPorVencido = l =>
+  esCaducado(l) && !mineIds.includes(l.id) && !(MOSTRAR_CADUCADOS && l.vence > l.fecha);
+
 function empleoToDb(l) {
   return {
     id: l.id, tipo: l.tipo, perfiles: l.perfiles, prendas: l.prendas, telas: l.telas,
@@ -618,7 +627,7 @@ function matchesFilters(listing) {
   const zona = document.getElementById('filterZona').value;
   const soloUrgente = document.getElementById('filterUrgente').checked;
 
-  if (listing.vence && listing.vence < Date.now() && !mineIds.includes(listing.id)) return false;
+  if (ocultarPorVencido(listing)) return false;
   if (activeTipo && listing.tipo !== activeTipo) return false;
   if (zona && listing.zona !== zona && !(listing.zonasTrabajo || []).includes(zona)) return false;
   if (soloUrgente && !listing.urgente) return false;
@@ -643,7 +652,7 @@ function render() {
 
   const filtered = listings
     .filter(matchesFilters)
-    .sort((a, b) => (b.destacado - a.destacado) || (b.urgente - a.urgente) || (b.fecha - a.fecha));
+    .sort((a, b) => (esCaducado(a) - esCaducado(b)) || (b.destacado - a.destacado) || (b.urgente - a.urgente) || (b.fecha - a.fecha));
 
   document.getElementById('resultCount').textContent =
     `${filtered.length} aviso${filtered.length === 1 ? '' : 's'} encontrado${filtered.length === 1 ? '' : 's'}`;
@@ -656,6 +665,7 @@ function render() {
     article.dataset.id = listing.id;
     article.classList.toggle('card-urgente', !!listing.urgente);
     article.classList.toggle('card-destacado', !!listing.destacado);
+    article.classList.toggle('opacity-60', esCaducado(listing));
 
     node.querySelector('.owner-actions').classList.toggle('hidden', !mineIds.includes(listing.id));
     renderOwnerYape(node, listing);
@@ -667,7 +677,7 @@ function render() {
 
     node.querySelector('.urgente-badge').classList.toggle('hidden', !listing.urgente);
     node.querySelector('.destacado-badge').classList.toggle('hidden', !listing.destacado);
-    node.querySelector('.vencido-badge').classList.toggle('hidden', !(listing.vence && listing.vence < Date.now()));
+    node.querySelector('.vencido-badge').classList.toggle('hidden', !esCaducado(listing));
     node.querySelector('.contacto-name').textContent = listing.contacto;
     node.querySelector('.zona-line span').textContent = listing.tipo === 'busco'
       ? `Vive en ${listing.zona} · ${timeAgo(listing.fecha)}`
@@ -970,7 +980,7 @@ function matchesMercFilters(listing) {
   const zona = document.getElementById('mercFilterZona').value;
   const soloUrgente = document.getElementById('mercFilterUrgente').checked;
 
-  if (listing.vence && listing.vence < Date.now() && !mineIds.includes(listing.id)) return false;
+  if (ocultarPorVencido(listing)) return false;
   if (activeMercTipo && listing.tipo !== activeMercTipo) return false;
   if (zona && listing.zona !== zona) return false;
   if (soloUrgente && !listing.urgente) return false;
@@ -993,7 +1003,7 @@ function mercRender() {
 
   const filtered = mercListings
     .filter(matchesMercFilters)
-    .sort((a, b) => (b.destacado - a.destacado) || (b.urgente - a.urgente) || (b.fecha - a.fecha));
+    .sort((a, b) => (esCaducado(a) - esCaducado(b)) || (b.destacado - a.destacado) || (b.urgente - a.urgente) || (b.fecha - a.fecha));
 
   document.getElementById('mercResultCount').textContent =
     `${filtered.length} publicación${filtered.length === 1 ? '' : 'es'} encontrada${filtered.length === 1 ? '' : 's'}`;
@@ -1006,6 +1016,7 @@ function mercRender() {
     article.dataset.id = listing.id;
     article.classList.toggle('card-urgente', !!listing.urgente);
     article.classList.toggle('card-destacado', !!listing.destacado);
+    article.classList.toggle('opacity-60', esCaducado(listing));
 
     node.querySelector('.owner-actions').classList.toggle('hidden', !mineIds.includes(listing.id));
     renderOwnerYape(node, listing);
@@ -1019,7 +1030,7 @@ function mercRender() {
 
     node.querySelector('.urgente-badge').classList.toggle('hidden', !listing.urgente);
     node.querySelector('.destacado-badge').classList.toggle('hidden', !listing.destacado);
-    node.querySelector('.vencido-badge').classList.toggle('hidden', !(listing.vence && listing.vence < Date.now()));
+    node.querySelector('.vencido-badge').classList.toggle('hidden', !esCaducado(listing));
     node.querySelector('.contacto-name').textContent = listing.contacto;
     node.querySelector('.zona-line span').textContent = `${listing.zona} · ${timeAgo(listing.fecha)}`;
     renderDocLine(node, listing);
@@ -1273,7 +1284,7 @@ function matchesServicioFilters(listing) {
   const zona = document.getElementById('servicioFilterZona').value;
   const soloUrgente = document.getElementById('servicioFilterUrgente').checked;
 
-  if (listing.vence && listing.vence < Date.now() && !mineIds.includes(listing.id)) return false;
+  if (ocultarPorVencido(listing)) return false;
   if (activeServicioTipo && listing.tipo !== activeServicioTipo) return false;
   if (zona && listing.zona !== zona) return false;
   if (soloUrgente && !listing.urgente) return false;
@@ -1296,7 +1307,7 @@ function servicioRender() {
 
   const filtered = servicioListings
     .filter(matchesServicioFilters)
-    .sort((a, b) => (b.destacado - a.destacado) || (b.urgente - a.urgente) || (b.fecha - a.fecha));
+    .sort((a, b) => (esCaducado(a) - esCaducado(b)) || (b.destacado - a.destacado) || (b.urgente - a.urgente) || (b.fecha - a.fecha));
 
   document.getElementById('servicioResultCount').textContent =
     `${filtered.length} publicación${filtered.length === 1 ? '' : 'es'} encontrada${filtered.length === 1 ? '' : 's'}`;
@@ -1309,6 +1320,7 @@ function servicioRender() {
     article.dataset.id = listing.id;
     article.classList.toggle('card-urgente', !!listing.urgente);
     article.classList.toggle('card-destacado', !!listing.destacado);
+    article.classList.toggle('opacity-60', esCaducado(listing));
 
     node.querySelector('.owner-actions').classList.toggle('hidden', !mineIds.includes(listing.id));
     renderOwnerYape(node, listing);
@@ -1320,7 +1332,7 @@ function servicioRender() {
 
     node.querySelector('.urgente-badge').classList.toggle('hidden', !listing.urgente);
     node.querySelector('.destacado-badge').classList.toggle('hidden', !listing.destacado);
-    node.querySelector('.vencido-badge').classList.toggle('hidden', !(listing.vence && listing.vence < Date.now()));
+    node.querySelector('.vencido-badge').classList.toggle('hidden', !esCaducado(listing));
     node.querySelector('.contacto-name').textContent = listing.contacto;
     node.querySelector('.zona-line span').textContent = `${listing.zona} · ${timeAgo(listing.fecha)}`;
     renderDocLine(node, listing);
