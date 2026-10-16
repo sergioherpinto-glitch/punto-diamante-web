@@ -7,6 +7,21 @@
 // Tres secciones independientes: Empleos, Mercadería (compra/venta) y Servicios.
 
 const LLAVES_KEY = 'costureros_llaves_v1';
+const ADMIN_KEY = 'costureros_admin_v1';
+
+// Enlace del administrador: /?admin=LLAVE guarda la llave maestra en este
+// navegador (y la borra de la barra de direcciones). Con ella se ven los botones
+// Editar/Eliminar en todos los avisos.
+try {
+  const params = new URLSearchParams(location.search);
+  if (params.get('admin')) {
+    localStorage.setItem(ADMIN_KEY, params.get('admin'));
+    params.delete('admin');
+    history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : '') + location.hash);
+  }
+} catch (e) { /* ignore */ }
+const adminLlave = () => { try { return localStorage.getItem(ADMIN_KEY) || ''; } catch (e) { return ''; } };
+const esMio = id => !!adminLlave() || mineIds.includes(id);
 
 // Habla con el servidor. Devuelve { ok, data } o { ok: false, message } con el
 // detalle real del error (sin internet, aviso ajeno, etc.).
@@ -37,7 +52,7 @@ const DIAS_EXTENSION_PAGADA = 7; // referencia para el README/SQL de "marcar des
 const MOSTRAR_CADUCADOS = true;
 const esCaducado = l => !!(l.vence && l.vence < Date.now());
 const ocultarPorVencido = l =>
-  esCaducado(l) && !mineIds.includes(l.id) && !(MOSTRAR_CADUCADOS && l.vence > l.fecha);
+  esCaducado(l) && !esMio(l.id) && !(MOSTRAR_CADUCADOS && l.vence > l.fecha);
 
 function empleoToDb(l) {
   return {
@@ -67,7 +82,8 @@ function mercToDb(l) {
     cantidad: l.cantidad, venta_tipo: l.ventaTipo, modalidad_venta: l.modalidadVenta,
     precio_mayor: l.precioMayor, precio_menor: l.precioMenor, zona: l.zona, contacto: l.contacto,
     whatsapp: l.whatsapp, descripcion: l.descripcion, urgente: l.urgente, fotos: l.fotos || [],
-    video: l.video || null,
+    videos: l.videos || [],
+    video: (l.videos && l.videos[0]) || null,
     documento: l.documento || null, documento_tipo: l.documentoTipo || null, fecha: l.fecha,
     vence: l.vence || null, destacado: !!l.destacado,
   };
@@ -78,7 +94,8 @@ function mercFromDb(r) {
     cantidad: r.cantidad, ventaTipo: r.venta_tipo, modalidadVenta: r.modalidad_venta,
     precioMayor: r.precio_mayor, precioMenor: r.precio_menor, zona: r.zona, contacto: r.contacto,
     whatsapp: r.whatsapp, descripcion: r.descripcion, urgente: r.urgente, fotos: r.fotos,
-    video: r.video,
+    // Avisos viejos solo traen "video" (uno): se muestra como lista de uno.
+    videos: (r.videos && r.videos.length) ? r.videos : (r.video ? [r.video] : []),
     documento: r.documento, documentoTipo: r.documento_tipo, fecha: r.fecha,
     vence: r.vence, destacado: !!r.destacado,
   };
@@ -186,15 +203,16 @@ let editingId = null;
 let mercEditingId = null;
 let servicioEditingId = null;
 let currentView = 'empleos';
-const MAX_PHOTOS = 6;
+const MAX_PHOTOS = 20;
 let formPhotoPicker = null;
 let mercPhotoPicker = null;
 let servicioPhotoPicker = null;
 
-// Un solo video por aviso de Mercadería, subido al servidor (R2 de Cloudflare;
+// Hasta MAX_VIDEOS videos por aviso de Mercadería, subidos al servidor (R2 de Cloudflare;
 // no se guarda como texto en la base como las fotos — pesa demasiado). Ver
 // mercVideoPicker() y uploadMercVideo().
 const MAX_VIDEO_MB = 25;
+const MAX_VIDEOS = 6;
 let mercVideoPicker = null;
 
 // Si la base no responde, avisamos con un error visible en vez de mostrar la
@@ -209,7 +227,7 @@ async function fetchSeccion(seccion, fromDb) {
 // servidor devuelve el aviso con su id y la llave nueva, que se guarda aquí.
 async function saveSeccion(seccion, editingIdActual, row, fromDb) {
   const result = editingIdActual
-    ? await api('PUT', `/api/${seccion}/${encodeURIComponent(editingIdActual)}`, row, llaves[editingIdActual])
+    ? await api('PUT', `/api/${seccion}/${encodeURIComponent(editingIdActual)}`, row, llaves[editingIdActual] || adminLlave())
     : await api('POST', `/api/${seccion}`, row);
   if (!result.ok) return { ok: false, message: result.message };
   if (result.data.llave) {
@@ -220,7 +238,7 @@ async function saveSeccion(seccion, editingIdActual, row, fromDb) {
 }
 
 async function removeSeccion(seccion, id) {
-  const result = await api('DELETE', `/api/${seccion}/${encodeURIComponent(id)}`, undefined, llaves[id]);
+  const result = await api('DELETE', `/api/${seccion}/${encodeURIComponent(id)}`, undefined, llaves[id] || adminLlave());
   if (result.ok) { delete llaves[id]; saveLlaves(); }
   return { ok: result.ok, message: result.ok ? null : result.message };
 }
@@ -320,88 +338,83 @@ function makePhotoPicker(inputId, listId, labelId, confirmWrapId) {
   };
 }
 
-// Controla el selector de "un solo video" del formulario de Mercadería. A
-// diferencia de las fotos, el video NO se comprime ni se guarda como texto
-// en la base — se sube tal cual al servidor (R2) recién al enviar el
-// formulario (ver uploadMercVideo). Aquí solo se valida el peso y se arma
-// la vista previa (con una URL local mientras no se ha subido).
+// Controla el selector de VARIOS videos del formulario de Mercadería (hasta
+// MAX_VIDEOS). A diferencia de las fotos, los videos NO se comprimen ni se
+// guardan como texto en la base — se suben tal cual al servidor (R2) recién al
+// enviar el formulario (ver uploadMercVideo). Aquí solo se valida el peso y se
+// arma la vista previa (con una URL local mientras no se han subido).
+// Cada elemento: { file, objectUrl } (nuevo) o { url } (ya subido).
 function makeVideoPicker(inputId, previewId, labelId, confirmWrapId) {
-  let file = null;
-  let existingUrl = null;
-  let objectUrl = null;
+  let items = [];
 
   function updateConfirmCheckbox() {
     if (!confirmWrapId) return;
     const wrap = document.getElementById(confirmWrapId);
     const checkbox = wrap.querySelector('input');
-    const show = !!(file || existingUrl);
+    const show = items.length > 0;
     wrap.classList.toggle('hidden', !show);
     checkbox.required = show;
     if (!show) checkbox.checked = false;
   }
 
+  function dropItem(item) {
+    if (item.objectUrl) URL.revokeObjectURL(item.objectUrl);
+    items = items.filter(x => x !== item);
+  }
+
   function renderPreview() {
     const list = document.getElementById(previewId);
     list.innerHTML = '';
-    const src = objectUrl || existingUrl;
-    if (src) {
+    list.classList.add('flex', 'flex-wrap', 'gap-2');
+    items.forEach((item) => {
       const wrap = document.createElement('div');
       wrap.className = 'relative w-28';
       const video = document.createElement('video');
-      video.src = src;
+      video.src = item.objectUrl || item.url;
       video.controls = true;
       video.muted = true;
+      video.preload = 'metadata';
       video.className = 'w-28 rounded-xl border border-stone-200 block';
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'foto-thumb-remove';
       removeBtn.setAttribute('aria-label', 'Quitar video');
       removeBtn.textContent = '×';
-      removeBtn.addEventListener('click', () => {
-        file = null;
-        existingUrl = null;
-        if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
-        renderPreview();
-      });
+      removeBtn.addEventListener('click', () => { dropItem(item); renderPreview(); });
       wrap.appendChild(video);
       wrap.appendChild(removeBtn);
       list.appendChild(wrap);
-    }
-    document.getElementById(labelId).classList.toggle('hidden', !!src);
+    });
+    const label = document.getElementById(labelId);
+    label.classList.toggle('hidden', items.length >= MAX_VIDEOS);
+    label.lastChild.textContent = items.length ? ' Agregar otro video' : ' Agregar video';
     updateConfirmCheckbox();
   }
 
   document.getElementById(inputId).addEventListener('change', (e) => {
-    const picked = e.target.files[0];
+    const picked = [...e.target.files];
     e.target.value = '';
-    if (!picked) return;
-    if (picked.size > MAX_VIDEO_MB * 1024 * 1024) {
-      alert(`Ese video pesa más de ${MAX_VIDEO_MB} MB. Prueba con uno más corto o de menor calidad.`);
-      return;
-    }
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
-    file = picked;
-    existingUrl = null;
-    objectUrl = URL.createObjectURL(file);
+    let tooBig = 0;
+    let tooMany = 0;
+    picked.forEach((file) => {
+      if (file.size > MAX_VIDEO_MB * 1024 * 1024) { tooBig++; return; }
+      if (items.length >= MAX_VIDEOS) { tooMany++; return; }
+      items.push({ file, objectUrl: URL.createObjectURL(file) });
+    });
+    if (tooBig) alert(`${tooBig === 1 ? 'Un video pesa' : tooBig + ' videos pesan'} más de ${MAX_VIDEO_MB} MB y no se agregó. Prueba con uno más corto o de menor calidad.`);
+    if (tooMany) alert(`Máximo ${MAX_VIDEOS} videos por aviso. Sobraron ${tooMany}.`);
     renderPreview();
   });
 
   return {
-    getFile: () => file,
-    getExistingUrl: () => existingUrl,
-    isEmpty: () => !file && !existingUrl,
-    set(url) {
-      file = null;
-      existingUrl = url || null;
-      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+    getItems: () => items,
+    isEmpty: () => items.length === 0,
+    set(urls) {
+      items.forEach(i => i.objectUrl && URL.revokeObjectURL(i.objectUrl));
+      items = (urls || []).map(url => ({ url }));
       renderPreview();
     },
-    reset() {
-      file = null;
-      existingUrl = null;
-      if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
-      renderPreview();
-    },
+    reset() { this.set([]); },
   };
 }
 
@@ -556,18 +569,84 @@ function parseDocumento(raw) {
 function renderCardPhotos(node, fotos) {
   const container = node.querySelector('.card-photos');
   if (!fotos || !fotos.length) { container.remove(); return; }
-  fotos.forEach(src => {
+  fotos.forEach((src, i) => {
     const img = document.createElement('img');
     img.src = src;
-    img.alt = '';
+    img.alt = `Foto ${i + 1} de ${fotos.length}`;
+    img.title = 'Toca para ver en grande';
+    img.addEventListener('click', () => abrirVisor(fotos, i));
     container.appendChild(img);
   });
 }
 
+// Visor de fotos: al tocar una foto de un aviso se abre en grande, y se pasa
+// de una a otra deslizando (celular) o con las flechas (laptop).
+let visor = null;
+function abrirVisor(fotos, inicio) {
+  if (!visor) {
+    visor = document.createElement('div');
+    visor.className = 'visor';
+    visor.setAttribute('role', 'dialog');
+    visor.setAttribute('aria-modal', 'true');
+    visor.innerHTML = `
+      <div class="visor-pista"></div>
+      <span class="visor-contador"></span>
+      <button type="button" class="visor-btn visor-cerrar" aria-label="Cerrar">✕</button>
+      <button type="button" class="visor-btn visor-ant" aria-label="Foto anterior">‹</button>
+      <button type="button" class="visor-btn visor-sig" aria-label="Foto siguiente">›</button>`;
+    document.body.appendChild(visor);
+    const pista = visor.querySelector('.visor-pista');
+    const ir = paso => pista.scrollBy({ left: paso * pista.clientWidth, behavior: 'smooth' });
+    visor.querySelector('.visor-cerrar').addEventListener('click', cerrarVisor);
+    visor.querySelector('.visor-ant').addEventListener('click', () => ir(-1));
+    visor.querySelector('.visor-sig').addEventListener('click', () => ir(1));
+    pista.addEventListener('scroll', () => {
+      const actual = Math.round(pista.scrollLeft / pista.clientWidth) + 1;
+      visor.querySelector('.visor-contador').textContent = `${actual} / ${pista.children.length}`;
+    });
+    // Tocar el fondo oscuro (fuera de la foto) también cierra.
+    pista.addEventListener('click', e => { if (e.target.classList.contains('visor-foto')) cerrarVisor(); });
+    document.addEventListener('keydown', e => {
+      if (!visor.classList.contains('abierto')) return;
+      if (e.key === 'Escape') cerrarVisor();
+      if (e.key === 'ArrowRight') ir(1);
+      if (e.key === 'ArrowLeft') ir(-1);
+    });
+  }
+  const pista = visor.querySelector('.visor-pista');
+  pista.innerHTML = '';
+  fotos.forEach((src, i) => {
+    const marco = document.createElement('div');
+    marco.className = 'visor-foto';
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = `Foto ${i + 1} de ${fotos.length}`;
+    marco.appendChild(img);
+    pista.appendChild(marco);
+  });
+  visor.querySelector('.visor-ant').hidden = visor.querySelector('.visor-sig').hidden = fotos.length < 2;
+  visor.classList.add('abierto');
+  document.body.style.overflow = 'hidden';
+  pista.scrollLeft = inicio * pista.clientWidth;
+  visor.querySelector('.visor-contador').textContent = `${inicio + 1} / ${fotos.length}`;
+}
+function cerrarVisor() {
+  visor.classList.remove('abierto');
+  document.body.style.overflow = '';
+}
+
 function renderMercVideo(node, listing) {
-  const video = node.querySelector('.merc-video');
-  if (!listing.video) { video.remove(); return; }
-  video.src = listing.video;
+  const box = node.querySelector('.merc-videos');
+  (listing.videos || []).forEach((src) => {
+    const video = document.createElement('video');
+    video.src = src;
+    video.controls = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.className = 'w-full rounded-2xl bg-stone-100';
+    box.appendChild(video);
+  });
 }
 
 function renderDocLine(node, listing) {
@@ -667,7 +746,7 @@ function render() {
     article.classList.toggle('card-destacado', !!listing.destacado);
     article.classList.toggle('opacity-60', esCaducado(listing));
 
-    node.querySelector('.owner-actions').classList.toggle('hidden', !mineIds.includes(listing.id));
+    node.querySelector('.owner-actions').classList.toggle('hidden', !esMio(listing.id));
     renderOwnerYape(node, listing);
     renderCardPhotos(node, listing.fotos);
 
@@ -828,7 +907,7 @@ function warnIfFreeQuotaUsed(seccionLabel, saved) {
 
 function renderOwnerYape(node, listing) {
   const ownerYape = node.querySelector('.owner-yape');
-  const isMine = mineIds.includes(listing.id);
+  const isMine = esMio(listing.id);
   ownerYape.classList.toggle('hidden', !isMine);
   if (isMine) ownerYape.querySelector('a').href = yapeUpsellLink(listing);
 }
@@ -1018,7 +1097,7 @@ function mercRender() {
     article.classList.toggle('card-destacado', !!listing.destacado);
     article.classList.toggle('opacity-60', esCaducado(listing));
 
-    node.querySelector('.owner-actions').classList.toggle('hidden', !mineIds.includes(listing.id));
+    node.querySelector('.owner-actions').classList.toggle('hidden', !esMio(listing.id));
     renderOwnerYape(node, listing);
 
     renderCardPhotos(node, listing.fotos || (listing.foto ? [listing.foto] : []));
@@ -1120,7 +1199,7 @@ function openMercModalForEdit(listing) {
   document.getElementById('mercUrgente').checked = listing.urgente;
 
   mercPhotoPicker.set(listing.fotos || (listing.foto ? [listing.foto] : []));
-  mercVideoPicker.set(listing.video);
+  mercVideoPicker.set(listing.videos);
 
   updateZonaOtroVisibility('mercZona', 'mercZonaOtroField');
   document.getElementById('mercModalTitle').textContent = 'Editar publicación';
@@ -1184,21 +1263,27 @@ function initMercForm() {
     if (doc === null) { alert('El DNI debe tener 8 dígitos y el RUC 11. Déjalo vacío si prefieres no ponerlo.'); return; }
 
     const mercSubmitBtn = document.getElementById('mercSubmitBtn');
-    let videoUrl = mercVideoPicker.getExistingUrl();
-    const videoFile = mercVideoPicker.getFile();
-    if (videoFile) {
+    const videoItems = mercVideoPicker.getItems();
+    const pendientes = videoItems.filter(it => !it.url);
+    if (pendientes.length) {
       const originalBtnText = mercSubmitBtn.textContent;
       mercSubmitBtn.disabled = true;
-      mercSubmitBtn.textContent = 'Subiendo video...';
-      const videoResult = await uploadMercVideo(videoFile);
-      mercSubmitBtn.textContent = originalBtnText;
-      if (!videoResult.ok) {
-        mercSubmitBtn.disabled = false;
-        alert('No se pudo subir el video.' + (videoResult.message ? `\n\nDetalle: ${videoResult.message}` : ' Revisa tu conexión e intenta de nuevo.'));
-        return;
+      for (let n = 0; n < pendientes.length; n++) {
+        mercSubmitBtn.textContent = `Subiendo video ${n + 1} de ${pendientes.length}...`;
+        const videoResult = await uploadMercVideo(pendientes[n].file);
+        if (!videoResult.ok) {
+          mercSubmitBtn.disabled = false;
+          mercSubmitBtn.textContent = originalBtnText;
+          alert(`No se pudo subir el video ${n + 1}.` + (videoResult.message ? `
+
+Detalle: ${videoResult.message}` : ' Revisa tu conexión e intenta de nuevo.'));
+          return;
+        }
+        pendientes[n].url = videoResult.url; // si falla uno después, estos no se vuelven a subir
       }
-      videoUrl = videoResult.url;
+      mercSubmitBtn.textContent = originalBtnText;
     }
+    const videoUrls = videoItems.map(it => it.url);
 
     const data = {
       tipo: document.querySelector('input[name="mercTipo"]:checked').value,
@@ -1216,7 +1301,7 @@ function initMercForm() {
       descripcion: document.getElementById('mercDescripcion').value.trim(),
       urgente: document.getElementById('mercUrgente').checked,
       fotos: mercPhotoPicker.get(),
-      video: videoUrl,
+      videos: videoUrls,
       documento: doc.valor,
       documentoTipo: doc.tipo,
     };
@@ -1322,7 +1407,7 @@ function servicioRender() {
     article.classList.toggle('card-destacado', !!listing.destacado);
     article.classList.toggle('opacity-60', esCaducado(listing));
 
-    node.querySelector('.owner-actions').classList.toggle('hidden', !mineIds.includes(listing.id));
+    node.querySelector('.owner-actions').classList.toggle('hidden', !esMio(listing.id));
     renderOwnerYape(node, listing);
     renderCardPhotos(node, listing.fotos);
 

@@ -32,7 +32,7 @@
   .scrollbar-none{ scrollbar-width:none; }
   .scrollbar-none::-webkit-scrollbar{ display:none; }
 
-  .card{ @apply bg-white border border-stone-200 border-l-[5px] rounded-[1.5rem] p-[1.15rem] flex flex-col gap-2 transition-all duration-150; border-left-color:#e7e0d2; }
+  .card{ @apply min-w-0 max-w-full bg-white border border-stone-200 border-l-[5px] rounded-[1.5rem] p-[1.15rem] flex flex-col gap-2 transition-all duration-150; border-left-color:#e7e0d2; }
   .card:hover{ @apply -translate-y-1 shadow-xl; }
   .card:has(.badge-ofrezco){ @apply bg-gradient-to-b from-ofrezco-wash to-white; }
   .card:has(.badge-busca){ @apply bg-gradient-to-b from-busca-wash to-white; }
@@ -40,7 +40,23 @@
   .card.card-destacado{ @apply bg-gradient-to-b from-accent-soft to-white ring-2 ring-accent ring-inset; border-left-color:#5b6e23; border-left-width:7px; box-shadow:0 14px 30px -12px rgba(91,110,35,.45); }
   @media (prefers-reduced-motion:reduce){ .card{ @apply transition-none; } .card:hover{ @apply translate-y-0; } }
 
-  .card-photos img{ @apply w-20 h-20 object-cover rounded-2xl shrink-0 bg-stone-100; }
+  .card-photos{ @apply min-w-0 max-w-full; -webkit-overflow-scrolling:touch; }
+  .card-photos img{ @apply w-20 h-20 object-cover rounded-2xl shrink-0 bg-stone-100; cursor:zoom-in; }
+
+  /* Visor de fotos en grande (ver abrirVisor en app.js) */
+  .visor{ position:fixed; inset:0; z-index:60; background:rgba(12,10,9,.94); display:none; }
+  .visor.abierto{ display:block; }
+  .visor-pista{ display:flex; width:100%; height:100%; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; }
+  .visor-pista::-webkit-scrollbar{ display:none; }
+  .visor-foto{ flex:0 0 100%; height:100%; scroll-snap-align:center; display:flex; align-items:center; justify-content:center; padding:56px 12px; box-sizing:border-box; }
+  .visor-foto img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:12px; background:#fff; touch-action:pinch-zoom; }
+  .visor-contador{ position:absolute; top:16px; left:50%; transform:translateX(-50%); color:#fff; font-size:14px; font-weight:700; background:rgba(0,0,0,.45); padding:4px 12px; border-radius:999px; }
+  .visor-btn{ position:absolute; border:0; color:#fff; background:rgba(255,255,255,.14); width:44px; height:44px; border-radius:999px; font-size:24px; line-height:44px; text-align:center; cursor:pointer; }
+  .visor-btn:hover{ background:rgba(255,255,255,.28); }
+  .visor-cerrar{ top:10px; right:12px; font-size:18px; }
+  .visor-ant{ left:10px; top:50%; transform:translateY(-50%); }
+  .visor-sig{ right:10px; top:50%; transform:translateY(-50%); }
+  @media (hover:none){ .visor-ant, .visor-sig{ display:none; } }
 
   .badge-ofrezco{ @apply bg-ofrezco-bg text-ofrezco; }
   .badge-busca{ @apply bg-busca-bg text-busca; }
@@ -127,7 +143,7 @@
   </div>
 
   <main class="max-w-3xl mx-auto px-4 pb-24">
-    <div id="grid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <div id="grid" class="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
     <div id="emptyState" class="text-center py-16 px-4 text-ink-soft">
       <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-thread-soft to-accent-soft text-thread-dark">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a1.5 1.5 0 1 1 1.5 1.5"/><path d="M12 4.5v2"/><path d="M12 6.5L4 11.5a1 1 0 0 0 .5 1.9h15a1 1 0 0 0 .5-1.9L12 6.5Z"/><path d="M6 14l-1 5h14l-1-5"/></svg>
@@ -155,7 +171,7 @@
   </div>
 
   <main class="max-w-3xl mx-auto px-4 pb-24">
-    <div id="mercGrid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <div id="mercGrid" class="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
     <div id="mercEmptyState" class="text-center py-16 px-4 text-ink-soft">
       <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-thread-soft to-accent-soft text-thread-dark">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a1.5 1.5 0 1 1 1.5 1.5"/><path d="M12 4.5v2"/><path d="M12 6.5L4 11.5a1 1 0 0 0 .5 1.9h15a1 1 0 0 0 .5-1.9L12 6.5Z"/><path d="M6 14l-1 5h14l-1-5"/></svg>
@@ -183,7 +199,7 @@
   </div>
 
   <main class="max-w-3xl mx-auto px-4 pb-24">
-    <div id="servicioGrid" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <div id="servicioGrid" class="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
     <div id="servicioEmptyState" class="text-center py-16 px-4 text-ink-soft">
       <div class="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-thread-soft to-accent-soft text-thread-dark">
         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a1.5 1.5 0 1 1 1.5 1.5"/><path d="M12 4.5v2"/><path d="M12 6.5L4 11.5a1 1 0 0 0 .5 1.9h15a1 1 0 0 0 .5-1.9L12 6.5Z"/><path d="M6 14l-1 5h14l-1-5"/></svg>
@@ -214,7 +230,7 @@
     </div>
 
     <div class="mb-4">
-      <label for="formFoto" class="block text-[14px] font-semibold mb-2">Fotos (hasta 6, opcional)</label>
+      <label for="formFoto" class="block text-[14px] font-semibold mb-2">Fotos (hasta 20, opcional)</label>
       <div>
         <input id="formFoto" type="file" accept="image/*" multiple class="absolute opacity-0 w-px h-px overflow-hidden">
         <label for="formFoto" id="formFotoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Agregar foto</label>
@@ -375,7 +391,7 @@
     </div>
 
     <div class="mb-4">
-      <label for="mercFoto" class="block text-[14px] font-semibold mb-2">Fotos (hasta 6, opcional)</label>
+      <label for="mercFoto" class="block text-[14px] font-semibold mb-2">Fotos (hasta 20, opcional)</label>
       <div>
         <input id="mercFoto" type="file" accept="image/*" multiple class="absolute opacity-0 w-px h-px overflow-hidden">
         <label for="mercFoto" id="mercFotoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Agregar foto</label>
@@ -388,15 +404,15 @@
     </div>
 
     <div class="mb-4">
-      <label for="mercVideo" class="block text-[14px] font-semibold mb-2">Video (opcional, hasta 25 MB)</label>
+      <label for="mercVideo" class="block text-[14px] font-semibold mb-2">Videos (opcional, hasta 6, de 25 MB cada uno)</label>
       <div>
-        <input id="mercVideo" type="file" accept="video/*" class="absolute opacity-0 w-px h-px overflow-hidden">
+        <input id="mercVideo" type="file" accept="video/*" multiple class="absolute opacity-0 w-px h-px overflow-hidden">
         <label for="mercVideo" id="mercVideoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> Agregar video</label>
         <div id="mercVideoPreview" class="mt-2 empty:mt-0"></div>
       </div>
-      <p class="text-[12px] text-ink-soft mt-1.5">Un solo video, hasta 25 MB. No se comprime — si tu celular graba muy pesado, graba uno más corto o de menor calidad.</p>
+      <p class="text-[12px] text-ink-soft mt-1.5">Puedes agregar hasta 6 videos, de hasta 25 MB cada uno. No se comprimen — si tu celular graba muy pesado, graba uno más corto o de menor calidad.</p>
       <label id="mercVideoConfirmWrap" class="hidden flex items-start gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-2xl px-3.5 py-3 mt-3">
-        <input id="mercVideoConfirm" type="checkbox" class="accent-thread w-4 h-4 mt-0.5 shrink-0"> Confirmo que mi video es apropiado para el aviso (nada de contenido explícito u ofensivo)
+        <input id="mercVideoConfirm" type="checkbox" class="accent-thread w-4 h-4 mt-0.5 shrink-0"> Confirmo que mis videos son apropiados para el aviso (nada de contenido explícito u ofensivo)
       </label>
     </div>
 
@@ -508,7 +524,7 @@
     </div>
 
     <div class="mb-4">
-      <label for="servicioFoto" class="block text-[14px] font-semibold mb-2">Fotos (hasta 6, opcional)</label>
+      <label for="servicioFoto" class="block text-[14px] font-semibold mb-2">Fotos (hasta 20, opcional)</label>
       <div>
         <input id="servicioFoto" type="file" accept="image/*" multiple class="absolute opacity-0 w-px h-px overflow-hidden">
         <label for="servicioFoto" id="servicioFotoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Agregar foto</label>
@@ -618,7 +634,7 @@
 <template id="mercCardTemplate">
   <article class="card">
     <div class="card-photos flex gap-1.5 overflow-x-auto empty:hidden"></div>
-    <video class="merc-video w-full rounded-2xl bg-stone-100" controls muted playsinline></video>
+    <div class="merc-videos flex flex-col gap-2 empty:hidden"></div>
     <div class="flex items-center justify-between gap-2">
       <span class="badge tipo-badge text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full"></span>
       <div class="flex items-center gap-1.5">

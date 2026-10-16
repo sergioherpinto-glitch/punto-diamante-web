@@ -2,3 +2,6 @@
 respaldo-supabase/
 
 llaves-avisos.json
+
+# Archivos internos de Cloudflare (se crean solos)
+.wrangler/

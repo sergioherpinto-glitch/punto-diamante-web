@@ -16,7 +16,7 @@ const CAMPOS: Record<Seccion, { listas: string[]; textos: string[] }> = {
 		textos: ["tipo", "experiencia", "tamano_taller", "pago", "zona", "contacto", "whatsapp", "descripcion", "documento", "documento_tipo"],
 	},
 	mercaderia: {
-		listas: ["items", "tallas", "colores", "modalidad_venta", "fotos"],
+		listas: ["items", "tallas", "colores", "modalidad_venta", "fotos", "videos"],
 		textos: ["tipo", "cantidad", "venta_tipo", "precio_mayor", "precio_menor", "zona", "contacto", "whatsapp", "descripcion", "video", "documento", "documento_tipo"],
 	},
 	servicios: {
@@ -30,7 +30,8 @@ const OPCIONALES = new Set(["documento", "documento_tipo", "video"]);
 
 const DIAS_GRATIS = 7;
 const DIA_MS = 86_400_000;
-const MAX_FOTOS = 6;
+const MAX_FOTOS = 20;
+const MAX_VIDEOS = 6;
 const MAX_AVISO_BYTES = 1_500_000; // las fotos van comprimidas dentro del aviso
 const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
 
@@ -77,6 +78,14 @@ function limpiar(seccion: Seccion, cuerpo: Record<string, unknown>) {
 		const v = cuerpo[c];
 		const arr = Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
 		datos[c] = JSON.stringify(c === "fotos" ? arr.slice(0, MAX_FOTOS) : arr);
+	}
+	if (seccion === "mercaderia") {
+		// Varios videos: solo rutas /videos/... sin repetir. Una página vieja que
+		// manda solo "video" (uno) sigue funcionando. "video" guarda el primero.
+		const enviados: unknown[] = Array.isArray(cuerpo.videos) ? cuerpo.videos : cuerpo.video ? [cuerpo.video] : [];
+		const videos = [...new Set(enviados.filter((x): x is string => typeof x === "string" && /^\/videos\/[\w.-]+$/.test(x)))].slice(0, MAX_VIDEOS);
+		datos.videos = JSON.stringify(videos);
+		cuerpo = { ...cuerpo, video: videos[0] ?? null };
 	}
 	for (const c of textos) {
 		const v = cuerpo[c];
@@ -131,11 +140,16 @@ async function crear(seccion: Seccion, cuerpo: Record<string, unknown>) {
 	return { aviso: aObjeto(seccion, fila), llave };
 }
 
+// Llave maestra de Sergio (dueño de la página): abre cualquier aviso. Aquí solo va
+// su huella SHA-256, no la llave; la llave vive solo en su celular.
+const HUELLA_MAESTRA = "5b21923b2036630c18a58cc7a1af3c1cf8097a12f76494ce01afc41290b6d914";
+
 async function verificarDueno(seccion: Seccion, id: string, request: Request) {
 	const fila = await buscar(seccion, id);
 	if (!fila) throw new ErrorUsuario("Ese aviso ya no existe.", 404);
 	const llave = request.headers.get("x-llave") || "";
-	if (!llave || !fila.llave_hash || (await huella(llave)) !== fila.llave_hash) {
+	const h = llave ? await huella(llave) : "";
+	if (!h || (h !== HUELLA_MAESTRA && (!fila.llave_hash || h !== fila.llave_hash))) {
 		throw new ErrorUsuario("Solo se puede cambiar desde el celular que publicó el aviso.", 403);
 	}
 	return fila;
