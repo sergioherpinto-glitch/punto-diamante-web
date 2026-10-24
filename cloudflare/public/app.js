@@ -62,6 +62,7 @@ function empleoToDb(l) {
     pago: l.pago, disponibilidad: l.disponibilidad, zona: l.zona, zonas_trabajo: l.zonasTrabajo || [],
     contacto: l.contacto, whatsapp: l.whatsapp, descripcion: l.descripcion, urgente: l.urgente,
     documento: l.documento || null, documento_tipo: l.documentoTipo || null, fotos: l.fotos || [],
+    videos: l.videos || [],
     fecha: l.fecha, vence: l.vence || null, destacado: !!l.destacado,
   };
 }
@@ -73,6 +74,7 @@ function empleoFromDb(r) {
     pago: r.pago, disponibilidad: r.disponibilidad, zona: r.zona, zonasTrabajo: r.zonas_trabajo,
     contacto: r.contacto, whatsapp: r.whatsapp, descripcion: r.descripcion, urgente: r.urgente,
     documento: r.documento, documentoTipo: r.documento_tipo, fotos: r.fotos, fecha: r.fecha,
+    videos: r.videos || [],
     vence: r.vence, destacado: !!r.destacado,
   };
 }
@@ -105,6 +107,7 @@ function servicioToDb(l) {
     id: l.id, tipo: l.tipo, tipos_servicio: l.tiposServicio, prendas: l.prendas,
     capacidad: l.capacidad, zona: l.zona, precio: l.precio, contacto: l.contacto,
     whatsapp: l.whatsapp, descripcion: l.descripcion, urgente: l.urgente, fotos: l.fotos || [],
+    videos: l.videos || [],
     documento: l.documento || null, documento_tipo: l.documentoTipo || null, fecha: l.fecha,
     vence: l.vence || null, destacado: !!l.destacado,
   };
@@ -114,6 +117,7 @@ function servicioFromDb(r) {
     id: r.id, tipo: r.tipo, tiposServicio: r.tipos_servicio, prendas: r.prendas,
     capacidad: r.capacidad, zona: r.zona, precio: r.precio, contacto: r.contacto,
     whatsapp: r.whatsapp, descripcion: r.descripcion, urgente: r.urgente, fotos: r.fotos,
+    videos: r.videos || [],
     documento: r.documento, documentoTipo: r.documento_tipo, fecha: r.fecha,
     vence: r.vence, destacado: !!r.destacado,
   };
@@ -205,8 +209,10 @@ let servicioEditingId = null;
 let currentView = 'empleos';
 const MAX_PHOTOS = 20;
 let formPhotoPicker = null;
+let formVideoPicker = null;
 let mercPhotoPicker = null;
 let servicioPhotoPicker = null;
+let servicioVideoPicker = null;
 
 // Hasta MAX_VIDEOS videos por aviso de Mercadería, subidos al servidor (R2 de Cloudflare;
 // no se guarda como texto en la base como las fotos — pesa demasiado). Ver
@@ -749,6 +755,7 @@ function render() {
     node.querySelector('.owner-actions').classList.toggle('hidden', !esMio(listing.id));
     renderOwnerYape(node, listing);
     renderCardPhotos(node, listing.fotos);
+    renderMercVideo(node, listing);
 
     const tipoBadge = node.querySelector('.tipo-badge');
     tipoBadge.textContent = listing.tipo === 'ofrezco' ? 'Busca personal' : 'Busca trabajo';
@@ -818,6 +825,7 @@ function openModalForCreate() {
   form.reset();
   hideOtroFieldsIn('publishForm');
   formPhotoPicker.reset();
+  formVideoPicker.reset();
   updatePerfilSections();
   updateTallerSection();
   updateZonaOtroVisibility('formZona', 'zonaOtroField');
@@ -860,6 +868,7 @@ function openModalForEdit(listing) {
   document.getElementById('formUrgente').checked = listing.urgente;
 
   formPhotoPicker.set(listing.fotos);
+  formVideoPicker.set(listing.videos);
 
   updatePerfilSections();
   updateTallerSection();
@@ -938,6 +947,7 @@ function initEmpleosForm() {
   wireOtroToggle('zonaTrabajoChips', 'zonaTrabajoOtroField', 'Otro');
 
   formPhotoPicker = makePhotoPicker('formFoto', 'formFotoPreviewList', 'formFotoLabel', 'formFotoConfirmWrap');
+  formVideoPicker = makeVideoPicker('formVideo', 'formVideoPreview', 'formVideoLabel', 'formVideoConfirmWrap');
 
   document.querySelector('#publishForm .yape-confirm-link').addEventListener('click', (e) => {
     e.preventDefault();
@@ -968,6 +978,29 @@ function initEmpleosForm() {
     const doc = parseDocumento(document.getElementById('formDocumento').value);
     if (doc === null) { alert('El DNI debe tener 8 dígitos y el RUC 11. Déjalo vacío si prefieres no ponerlo.'); return; }
 
+    const formSubmitBtn = document.getElementById('submitBtn');
+    const videoItems = formVideoPicker.getItems();
+    const pendientes = videoItems.filter(it => !it.url);
+    if (pendientes.length) {
+      const originalBtnText = formSubmitBtn.textContent;
+      formSubmitBtn.disabled = true;
+      for (let n = 0; n < pendientes.length; n++) {
+        formSubmitBtn.textContent = `Subiendo video ${n + 1} de ${pendientes.length}...`;
+        const videoResult = await uploadMercVideo(pendientes[n].file);
+        if (!videoResult.ok) {
+          formSubmitBtn.disabled = false;
+          formSubmitBtn.textContent = originalBtnText;
+          alert(`No se pudo subir el video ${n + 1}.` + (videoResult.message ? `
+
+Detalle: ${videoResult.message}` : ' Revisa tu conexión e intenta de nuevo.'));
+          return;
+        }
+        pendientes[n].url = videoResult.url; // si falla uno después, estos no se vuelven a subir
+      }
+      formSubmitBtn.textContent = originalBtnText;
+    }
+    const videoUrls = videoItems.map(it => it.url);
+
     const tipo = document.querySelector('input[name="tipo"]:checked').value;
     const perfiles = checkedValues('perfilChips');
 
@@ -993,6 +1026,7 @@ function initEmpleosForm() {
       documento: doc.valor,
       documentoTipo: doc.tipo,
       fotos: formPhotoPicker.get(),
+      videos: videoUrls,
     };
 
     let newId = null;
@@ -1410,6 +1444,7 @@ function servicioRender() {
     node.querySelector('.owner-actions').classList.toggle('hidden', !esMio(listing.id));
     renderOwnerYape(node, listing);
     renderCardPhotos(node, listing.fotos);
+    renderMercVideo(node, listing);
 
     const tipoBadge = node.querySelector('.tipo-badge');
     tipoBadge.textContent = listing.tipo === 'ofrezco' ? 'Ofrece servicio' : 'Busca taller';
@@ -1448,6 +1483,7 @@ function openServicioModalForCreate() {
   hideOtroFieldsIn('servicioForm');
   updateZonaOtroVisibility('servicioZona', 'servicioZonaOtroField');
   servicioPhotoPicker.reset();
+  servicioVideoPicker.reset();
   document.getElementById('servicioModalTitle').textContent = 'Publicar servicio';
   document.getElementById('servicioSubmitBtn').textContent = 'Publicar servicio';
   openServicioModal();
@@ -1478,6 +1514,7 @@ function openServicioModalForEdit(listing) {
   document.getElementById('servicioUrgente').checked = listing.urgente;
 
   servicioPhotoPicker.set(listing.fotos);
+  servicioVideoPicker.set(listing.videos);
 
   updateZonaOtroVisibility('servicioZona', 'servicioZonaOtroField');
   document.getElementById('servicioModalTitle').textContent = 'Editar servicio';
@@ -1504,6 +1541,7 @@ function initServicioForm() {
   wireOtroToggle('servicioPrendaChips', 'servicioPrendaOtroField');
 
   servicioPhotoPicker = makePhotoPicker('servicioFoto', 'servicioFotoPreviewList', 'servicioFotoLabel', 'servicioFotoConfirmWrap');
+  servicioVideoPicker = makeVideoPicker('servicioVideo', 'servicioVideoPreview', 'servicioVideoLabel', 'servicioVideoConfirmWrap');
 
   document.querySelector('#servicioForm .yape-confirm-link').addEventListener('click', (e) => {
     e.preventDefault();
@@ -1534,6 +1572,29 @@ function initServicioForm() {
     const doc = parseDocumento(document.getElementById('servicioDocumento').value);
     if (doc === null) { alert('El DNI debe tener 8 dígitos y el RUC 11. Déjalo vacío si prefieres no ponerlo.'); return; }
 
+    const servicioSubmitBtn = document.getElementById('servicioSubmitBtn');
+    const videoItems = servicioVideoPicker.getItems();
+    const pendientes = videoItems.filter(it => !it.url);
+    if (pendientes.length) {
+      const originalBtnText = servicioSubmitBtn.textContent;
+      servicioSubmitBtn.disabled = true;
+      for (let n = 0; n < pendientes.length; n++) {
+        servicioSubmitBtn.textContent = `Subiendo video ${n + 1} de ${pendientes.length}...`;
+        const videoResult = await uploadMercVideo(pendientes[n].file);
+        if (!videoResult.ok) {
+          servicioSubmitBtn.disabled = false;
+          servicioSubmitBtn.textContent = originalBtnText;
+          alert(`No se pudo subir el video ${n + 1}.` + (videoResult.message ? `
+
+Detalle: ${videoResult.message}` : ' Revisa tu conexión e intenta de nuevo.'));
+          return;
+        }
+        pendientes[n].url = videoResult.url; // si falla uno después, estos no se vuelven a subir
+      }
+      servicioSubmitBtn.textContent = originalBtnText;
+    }
+    const videoUrls = videoItems.map(it => it.url);
+
     const data = {
       tipo: document.querySelector('input[name="servicioTipo"]:checked').value,
       tiposServicio: resolveChipValues('servicioTipoServicioChips', 'servicioTipoServicioOtro', 'Otro'),
@@ -1546,6 +1607,7 @@ function initServicioForm() {
       descripcion: document.getElementById('servicioDescripcion').value.trim(),
       urgente: document.getElementById('servicioUrgente').checked,
       fotos: servicioPhotoPicker.get(),
+      videos: videoUrls,
       documento: doc.valor,
       documentoTipo: doc.tipo,
     };
@@ -1559,7 +1621,6 @@ function initServicioForm() {
       listingToSave = { id: newId, ...data, fecha: Date.now(), vence: Date.now() + DIAS_GRATIS * 86400000, destacado: false };
     }
 
-    const servicioSubmitBtn = document.getElementById('servicioSubmitBtn');
     servicioSubmitBtn.disabled = true;
     const result = await saveServicio(listingToSave);
     servicioSubmitBtn.disabled = false;

@@ -242,6 +242,19 @@
       </label>
     </div>
 
+    <div class="mb-4">
+      <label for="formVideo" class="block text-[14px] font-semibold mb-2">Videos (opcional, hasta 6, de 25 MB cada uno)</label>
+      <div>
+        <input id="formVideo" type="file" accept="video/*" multiple class="absolute opacity-0 w-px h-px overflow-hidden">
+        <label for="formVideo" id="formVideoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> Agregar video</label>
+        <div id="formVideoPreview" class="mt-2 empty:mt-0"></div>
+      </div>
+      <p class="text-[12px] text-ink-soft mt-1.5">El taller puede mostrar el trabajo o la mercadería; el costurero/a, cómo trabaja. Hasta 6 videos, de hasta 25 MB cada uno. No se comprimen — si tu celular graba muy pesado, graba uno más corto o de menor calidad.</p>
+      <label id="formVideoConfirmWrap" class="hidden flex items-start gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-2xl px-3.5 py-3 mt-3">
+        <input id="formVideoConfirm" type="checkbox" class="accent-thread w-4 h-4 mt-0.5 shrink-0"> Confirmo que mis videos son apropiados para el aviso (nada de contenido explícito u ofensivo)
+      </label>
+    </div>
+
     <p class="text-[11px] font-bold uppercase tracking-wide text-thread-dark mt-0 mb-3 pt-0 border-t-0">El trabajo</p>
 
     <div class="mb-4">
@@ -537,6 +550,19 @@
     </div>
 
     <div class="mb-4">
+      <label for="servicioVideo" class="block text-[14px] font-semibold mb-2">Videos (opcional, hasta 6, de 25 MB cada uno)</label>
+      <div>
+        <input id="servicioVideo" type="file" accept="video/*" multiple class="absolute opacity-0 w-px h-px overflow-hidden">
+        <label for="servicioVideo" id="servicioVideoLabel" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full border-[1.5px] border-dashed border-thread bg-thread-soft text-thread-dark text-[14px] font-bold cursor-pointer hover:bg-thread hover:text-white hover:border-solid transition-colors"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> Agregar video</label>
+        <div id="servicioVideoPreview" class="mt-2 empty:mt-0"></div>
+      </div>
+      <p class="text-[12px] text-ink-soft mt-1.5">Muestra cómo trabajas: hasta 6 videos, de hasta 25 MB cada uno. No se comprimen — si tu celular graba muy pesado, graba uno más corto o de menor calidad.</p>
+      <label id="servicioVideoConfirmWrap" class="hidden flex items-start gap-2 text-[14px] font-semibold bg-white border border-stone-200 rounded-2xl px-3.5 py-3 mt-3">
+        <input id="servicioVideoConfirm" type="checkbox" class="accent-thread w-4 h-4 mt-0.5 shrink-0"> Confirmo que mis videos son apropiados para el aviso (nada de contenido explícito u ofensivo)
+      </label>
+    </div>
+
+    <div class="mb-4">
       <label id="servicioTipoServicioLabel" class="block text-[14px] font-semibold mb-2">Tipo de servicio</label>
       <div id="servicioTipoServicioChips" class="flex flex-wrap gap-1.5" role="group" aria-labelledby="servicioTipoServicioLabel"></div>
       <div id="servicioTipoServicioOtroField" class="otro-field hidden mt-2">
@@ -604,6 +630,7 @@
 <template id="cardTemplate">
   <article class="card">
     <div class="card-photos flex gap-1.5 overflow-x-auto empty:hidden"></div>
+    <div class="merc-videos flex flex-col gap-2 empty:hidden"></div>
     <div class="flex items-center justify-between gap-2">
       <span class="badge tipo-badge text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full"></span>
       <div class="flex items-center gap-1.5">
@@ -665,6 +692,7 @@
 <template id="servicioCardTemplate">
   <article class="card">
     <div class="card-photos flex gap-1.5 overflow-x-auto empty:hidden"></div>
+    <div class="merc-videos flex flex-col gap-2 empty:hidden"></div>
     <div class="flex items-center justify-between gap-2">
       <span class="badge tipo-badge text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full"></span>
       <div class="flex items-center gap-1.5">

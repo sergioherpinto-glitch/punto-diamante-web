@@ -12,7 +12,7 @@ type Seccion = "empleos" | "mercaderia" | "servicios";
 // Columnas que la persona puede llenar desde el formulario, por sección.
 const CAMPOS: Record<Seccion, { listas: string[]; textos: string[] }> = {
 	empleos: {
-		listas: ["perfiles", "prendas", "telas", "maquinas", "operaciones", "labor_manual", "modalidad_pago", "disponibilidad", "zonas_trabajo", "fotos"],
+		listas: ["perfiles", "prendas", "telas", "maquinas", "operaciones", "labor_manual", "modalidad_pago", "disponibilidad", "zonas_trabajo", "fotos", "videos"],
 		textos: ["tipo", "experiencia", "tamano_taller", "pago", "zona", "contacto", "whatsapp", "descripcion", "documento", "documento_tipo"],
 	},
 	mercaderia: {
@@ -20,7 +20,7 @@ const CAMPOS: Record<Seccion, { listas: string[]; textos: string[] }> = {
 		textos: ["tipo", "cantidad", "venta_tipo", "precio_mayor", "precio_menor", "zona", "contacto", "whatsapp", "descripcion", "video", "documento", "documento_tipo"],
 	},
 	servicios: {
-		listas: ["tipos_servicio", "prendas", "fotos"],
+		listas: ["tipos_servicio", "prendas", "fotos", "videos"],
 		textos: ["tipo", "capacidad", "zona", "precio", "contacto", "whatsapp", "descripcion", "documento", "documento_tipo"],
 	},
 };
@@ -79,9 +79,10 @@ function limpiar(seccion: Seccion, cuerpo: Record<string, unknown>) {
 		const arr = Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
 		datos[c] = JSON.stringify(c === "fotos" ? arr.slice(0, MAX_FOTOS) : arr);
 	}
-	if (seccion === "mercaderia") {
-		// Varios videos: solo rutas /videos/... sin repetir. Una página vieja que
-		// manda solo "video" (uno) sigue funcionando. "video" guarda el primero.
+	{
+		// Varios videos (todas las secciones): solo rutas /videos/... sin repetir. Una
+		// página vieja que manda solo "video" (uno) sigue funcionando. "video" guarda
+		// el primero (solo existe en Mercadería y Servicios; en Empleos se ignora).
 		const enviados: unknown[] = Array.isArray(cuerpo.videos) ? cuerpo.videos : cuerpo.video ? [cuerpo.video] : [];
 		const videos = [...new Set(enviados.filter((x): x is string => typeof x === "string" && /^\/videos\/[\w.-]+$/.test(x)))].slice(0, MAX_VIDEOS);
 		datos.videos = JSON.stringify(videos);
