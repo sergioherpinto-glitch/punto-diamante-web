@@ -28,8 +28,6 @@ const PREFIJO: Record<Seccion, string> = { empleos: "l", mercaderia: "m", servic
 // Columnas que pueden quedar vacías (null) en vez de texto vacío.
 const OPCIONALES = new Set(["documento", "documento_tipo", "video"]);
 
-const DIAS_GRATIS = 7;
-const DIA_MS = 86_400_000;
 const MAX_FOTOS = 20;
 const MAX_VIDEOS = 6;
 const MAX_AVISO_BYTES = 1_500_000; // las fotos van comprimidas dentro del aviso
@@ -59,9 +57,12 @@ function nuevaLlave(): string {
 }
 
 // Fila de la base → objeto como lo devolvía Supabase (listas y sí/no reales).
-function aObjeto(seccion: Seccion, fila: Record<string, unknown>) {
+// El DNI es privado: solo lo recibe el administrador (para editar el aviso); los
+// demás solo saben que hay uno ("DNI registrado"). El RUC sí es público.
+function aObjeto(seccion: Seccion, fila: Record<string, unknown>, esAdmin = false) {
 	const { llave_hash: _omitir, ...resto } = fila;
 	const out: Record<string, unknown> = { ...resto };
+	if (!esAdmin && out.documento_tipo !== "RUC") out.documento = null;
 	for (const c of CAMPOS[seccion].listas) {
 		try { out[c] = JSON.parse(String(fila[c] ?? "[]")); } catch { out[c] = []; }
 	}
@@ -109,41 +110,44 @@ async function leerCuerpo(request: Request): Promise<Record<string, unknown>> {
 	try { return JSON.parse(texto); } catch { throw new ErrorUsuario("Datos mal enviados."); }
 }
 
-async function listar(seccion: Seccion) {
+async function listar(seccion: Seccion, request: Request) {
+	const esAdmin = await esLlaveMaestra(request);
 	const { results } = await env.DB.prepare(`select * from ${seccion} order by fecha desc`).all();
-	return results.map((f) => aObjeto(seccion, f));
+	return results.map((f) => aObjeto(seccion, f, esAdmin));
 }
 
 async function buscar(seccion: Seccion, id: string) {
 	return env.DB.prepare(`select * from ${seccion} where id = ?`).bind(id).first<Record<string, unknown>>();
 }
 
-async function crear(seccion: Seccion, cuerpo: Record<string, unknown>) {
-	const datos = limpiar(seccion, cuerpo);
+// Desde el 29/10/2026 solo Sergio publica (él arma cada aviso con fotos y video).
+// Sus avisos no vencen solos: él los quita cuando el dueño le avisa que ya no va.
+async function crear(seccion: Seccion, request: Request) {
+	if (!(await esLlaveMaestra(request))) {
+		throw new ErrorUsuario("Para publicar tu aviso escríbele a Sergio por WhatsApp: él lo arma por ti.", 403);
+	}
+	const datos = limpiar(seccion, await leerCuerpo(request));
 	const ahora = Date.now();
 	const id = `${PREFIJO[seccion]}-${ahora}-${nuevaLlave().slice(0, 6)}`;
 	const llave = nuevaLlave();
-
-	// Un aviso gratis por WhatsApp y sección: el segundo llega vencido hasta que pague.
-	const usado = await env.DB.prepare("select 1 from avisos_gratis_usados where whatsapp = ? and seccion = ?")
-		.bind(datos.whatsapp, seccion).first();
-	const fila = { ...datos, id, fecha: ahora, vence: usado ? ahora - 1 : ahora + DIAS_GRATIS * DIA_MS, destacado: 0, llave_hash: await huella(llave) };
+	const fila = { ...datos, id, fecha: ahora, vence: null, destacado: 0, llave_hash: await huella(llave) };
 
 	const columnas = Object.keys(fila);
-	const insertar = env.DB.prepare(
+	await env.DB.prepare(
 		`insert into ${seccion} (${columnas.join(", ")}) values (${columnas.map(() => "?").join(", ")})`,
-	).bind(...Object.values(fila));
-	const marcarGratis = env.DB.prepare(
-		"insert into avisos_gratis_usados (whatsapp, seccion, primera_vez) values (?, ?, ?) on conflict do nothing",
-	).bind(datos.whatsapp, seccion, ahora);
-	await env.DB.batch([insertar, marcarGratis]);
+	).bind(...Object.values(fila)).run();
 
-	return { aviso: aObjeto(seccion, fila), llave };
+	return { aviso: aObjeto(seccion, fila, true), llave };
 }
 
 // Llave maestra de Sergio (dueño de la página): abre cualquier aviso. Aquí solo va
 // su huella SHA-256, no la llave; la llave vive solo en su celular.
 const HUELLA_MAESTRA = "5b21923b2036630c18a58cc7a1af3c1cf8097a12f76494ce01afc41290b6d914";
+
+async function esLlaveMaestra(request: Request) {
+	const llave = request.headers.get("x-llave") || "";
+	return !!llave && (await huella(llave)) === HUELLA_MAESTRA;
+}
 
 async function verificarDueno(seccion: Seccion, id: string, request: Request) {
 	const fila = await buscar(seccion, id);
@@ -157,12 +161,19 @@ async function verificarDueno(seccion: Seccion, id: string, request: Request) {
 }
 
 async function actualizar(seccion: Seccion, id: string, request: Request) {
-	await verificarDueno(seccion, id, request);
+	const fila = await verificarDueno(seccion, id, request);
+	const esAdmin = await esLlaveMaestra(request);
 	const datos = limpiar(seccion, await leerCuerpo(request));
+	// El dueño ya no recibe su DNI (ver aObjeto): si lo manda vacío, se conserva el
+	// guardado. El RUC sí lo ve, así que si lo borra es a propósito.
+	if (!esAdmin && !datos.documento && fila.documento && fila.documento_tipo !== "RUC") {
+		datos.documento = fila.documento as string;
+		datos.documento_tipo = fila.documento_tipo as string;
+	}
 	const columnas = Object.keys(datos);
 	await env.DB.prepare(`update ${seccion} set ${columnas.map((c) => `${c} = ?`).join(", ")} where id = ?`)
 		.bind(...Object.values(datos), id).run();
-	return { aviso: aObjeto(seccion, (await buscar(seccion, id))!) };
+	return { aviso: aObjeto(seccion, (await buscar(seccion, id))!, esAdmin) };
 }
 
 async function borrar(seccion: Seccion, id: string, request: Request) {
@@ -172,6 +183,10 @@ async function borrar(seccion: Seccion, id: string, request: Request) {
 }
 
 async function subirVideo(request: Request) {
+	if (!(await esLlaveMaestra(request))) {
+		await request.body?.cancel(); // no se lee el video ajeno
+		throw new ErrorUsuario("Solo el administrador puede subir videos.", 403);
+	}
 	const tipo = request.headers.get("content-type") || "";
 	if (!tipo.startsWith("video/")) throw new ErrorUsuario("Ese archivo no es un video.");
 	const largo = Number(request.headers.get("content-length") || 0);
@@ -221,8 +236,8 @@ export default {
 			const id = partes[2] ? decodeURIComponent(partes[2]) : "";
 			if (!ES_SECCION(seccion)) return json({ error: "Sección desconocida." }, 404);
 
-			if (!id && request.method === "GET") return json(await listar(seccion));
-			if (!id && request.method === "POST") return json(await crear(seccion, await leerCuerpo(request)));
+			if (!id && request.method === "GET") return json(await listar(seccion, request));
+			if (!id && request.method === "POST") return json(await crear(seccion, request));
 			if (id && request.method === "PUT") return json(await actualizar(seccion, id, request));
 			if (id && request.method === "DELETE") return json(await borrar(seccion, id, request));
 			return json({ error: "Acción no permitida." }, 405);

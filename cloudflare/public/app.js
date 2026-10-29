@@ -130,6 +130,9 @@ const ADMIN_EMAIL = 'sergioestratega.oficial@gmail.com';
 // El número de Yape sí tiene que ser visible para que la gente pueda pagar —
 // eso lo exige Yape, no es una decisión de la app.
 const YAPE_NUMBER = '926924581';
+// Desde el 29/10/2026 solo Sergio publica: la gente le pide su aviso por WhatsApp
+// a este número (lo eligió él para esto).
+const PEDIDOS_WHATSAPP = '962667762';
 
 const PERFILES = ['Operario(a) de máquina', 'Manual de costura', 'Cortador(a)', 'Vendedor(a)'];
 
@@ -224,7 +227,8 @@ let mercVideoPicker = null;
 // Si la base no responde, avisamos con un error visible en vez de mostrar la
 // página vacía (antes parecía que "se habían borrado" los avisos).
 async function fetchSeccion(seccion, fromDb) {
-  const result = await api('GET', `/api/${seccion}`);
+  // Con la llave maestra el servidor también manda el DNI (para poder editarlo).
+  const result = await api('GET', `/api/${seccion}`, undefined, adminLlave());
   if (!result.ok) throw new Error(`No se pudieron cargar los avisos (${result.message}).`);
   return result.data.map(fromDb);
 }
@@ -233,8 +237,8 @@ async function fetchSeccion(seccion, fromDb) {
 // servidor devuelve el aviso con su id y la llave nueva, que se guarda aquí.
 async function saveSeccion(seccion, editingIdActual, row, fromDb) {
   const result = editingIdActual
-    ? await api('PUT', `/api/${seccion}/${encodeURIComponent(editingIdActual)}`, row, llaves[editingIdActual] || adminLlave())
-    : await api('POST', `/api/${seccion}`, row);
+    ? await api('PUT', `/api/${seccion}/${encodeURIComponent(editingIdActual)}`, row, adminLlave() || llaves[editingIdActual])
+    : await api('POST', `/api/${seccion}`, row, adminLlave());
   if (!result.ok) return { ok: false, message: result.message };
   if (result.data.llave) {
     llaves[result.data.aviso.id] = result.data.llave;
@@ -244,7 +248,7 @@ async function saveSeccion(seccion, editingIdActual, row, fromDb) {
 }
 
 async function removeSeccion(seccion, id) {
-  const result = await api('DELETE', `/api/${seccion}/${encodeURIComponent(id)}`, undefined, llaves[id] || adminLlave());
+  const result = await api('DELETE', `/api/${seccion}/${encodeURIComponent(id)}`, undefined, adminLlave() || llaves[id]);
   if (result.ok) { delete llaves[id]; saveLlaves(); }
   return { ok: result.ok, message: result.ok ? null : result.message };
 }
@@ -429,7 +433,7 @@ function makeVideoPicker(inputId, previewId, labelId, confirmWrapId) {
 // falla, devuelve ok:false con el detalle del error real.
 async function uploadMercVideo(file) {
   try {
-    const res = await fetch('/api/videos', { method: 'POST', headers: { 'content-type': file.type || 'video/mp4' }, body: file });
+    const res = await fetch('/api/videos', { method: 'POST', headers: { 'content-type': file.type || 'video/mp4', 'x-llave': adminLlave() }, body: file });
     const data = await res.json().catch(() => null);
     if (!res.ok) return { ok: false, message: (data && data.error) || `Error ${res.status}` };
     return { ok: true, url: data.url };
@@ -756,6 +760,7 @@ function render() {
     renderOwnerYape(node, listing);
     renderCardPhotos(node, listing.fotos);
     renderMercVideo(node, listing);
+    wireCompartirAviso(node, listing);
 
     const tipoBadge = node.querySelector('.tipo-badge');
     tipoBadge.textContent = listing.tipo === 'ofrezco' ? 'Busca personal' : 'Busca trabajo';
@@ -1136,6 +1141,7 @@ function mercRender() {
 
     renderCardPhotos(node, listing.fotos || (listing.foto ? [listing.foto] : []));
     renderMercVideo(node, listing);
+    wireCompartirAviso(node, listing);
 
     const tipoBadge = node.querySelector('.tipo-badge');
     tipoBadge.textContent = listing.tipo === 'vendo' ? 'Vendo' : 'Busco comprar';
@@ -1445,6 +1451,7 @@ function servicioRender() {
     renderOwnerYape(node, listing);
     renderCardPhotos(node, listing.fotos);
     renderMercVideo(node, listing);
+    wireCompartirAviso(node, listing);
 
     const tipoBadge = node.querySelector('.tipo-badge');
     tipoBadge.textContent = listing.tipo === 'ofrezco' ? 'Ofrece servicio' : 'Busca taller';
@@ -1665,12 +1672,33 @@ function switchView(view) {
   document.querySelectorAll('.mode-tab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
   const fabLabels = { empleos: 'Publicar aviso', mercaderia: 'Publicar mercadería', servicios: 'Publicar servicio' };
   document.getElementById('fab').setAttribute('aria-label', fabLabels[view]);
+  document.getElementById('pedirAviso').href = pedirAvisoLink(view);
+}
+
+// Botón "Quiero publicar mi aviso": abre el WhatsApp de Sergio con el mensaje
+// listo según la sección que la persona está mirando.
+function pedirAvisoLink(view) {
+  const que = { empleos: 'de empleo', mercaderia: 'de compra/venta', servicios: 'de servicio' }[view];
+  const msg = `Hola Sergio, quiero publicar un aviso ${que} en Confecciones Perú. Es sobre: `;
+  return `https://wa.me/51${PEDIDOS_WHATSAPP}?text=${encodeURIComponent(msg)}`;
 }
 
 function initNav() {
   document.querySelectorAll('.mode-tab').forEach(btn => {
     btn.addEventListener('click', () => switchView(btn.dataset.view));
   });
+
+  // Solo el administrador (llave maestra) ve el "+" que abre el formulario.
+  const esAdmin = !!adminLlave();
+  document.getElementById('fab').classList.toggle('hidden', !esAdmin);
+  // Los videos solo los sube el administrador: al dueño que edita su aviso no se
+  // le ofrece (el servidor los rechazaría y cortaría el guardado).
+  ['formVideo', 'mercVideo', 'servicioVideo'].forEach(id =>
+    document.getElementById(id).closest('.mb-4').classList.toggle('hidden', !esAdmin));
+  const pedir = document.getElementById('pedirAviso');
+  pedir.classList.toggle('hidden', esAdmin);
+  pedir.classList.toggle('flex', !esAdmin);
+  pedir.href = pedirAvisoLink(currentView);
 
   document.getElementById('fab').addEventListener('click', () => {
     if (currentView === 'empleos') openModalForCreate();
@@ -1679,12 +1707,41 @@ function initNav() {
   });
 }
 
+// Cada aviso tiene su propio enlace (/?aviso=ID) para mandarlo a los grupos: al
+// abrirlo, la página va a su sección, baja hasta el aviso y lo resalta.
+const SECCION_POR_PREFIJO = { l: 'empleos', m: 'mercaderia', s: 'servicios' };
+const enlaceAviso = id => `${location.origin}/?aviso=${encodeURIComponent(id)}`;
+
+function wireCompartirAviso(node, listing) {
+  node.querySelector('.share-aviso').addEventListener('click', () => {
+    const url = enlaceAviso(listing.id);
+    const texto = `Aviso en Confecciones Perú: ${listing.contacto} (${listing.zona}). Fotos, detalles y contacto aquí:`;
+    if (navigator.share) {
+      navigator.share({ title: 'Confecciones Perú', text: texto, url }).catch(() => {});
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(`${texto} ${url}`)}`, '_blank');
+    }
+  });
+}
+
+function abrirAvisoDelEnlace() {
+  const id = new URLSearchParams(location.search).get('aviso');
+  if (!id) return;
+  const view = SECCION_POR_PREFIJO[id.charAt(0)];
+  if (!view) return;
+  switchView(view);
+  const card = document.querySelector(`#${view}View .card[data-id="${CSS.escape(id)}"]`);
+  if (!card) return;
+  card.classList.add('aviso-resaltado');
+  setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+}
+
 function initShare() {
   const btn = document.getElementById('shareBtn');
   btn.classList.remove('hidden');
   btn.style.display = 'inline-flex';
   btn.addEventListener('click', () => {
-    const url = window.location.href;
+    const url = `${location.origin}/`; // la página, no el aviso del enlace (?aviso=)
     if (navigator.share) {
       navigator.share({ title: 'Confecciones Perú', url }).catch(() => {});
     } else {
@@ -1746,6 +1803,7 @@ async function init() {
 
   initNav();
   initShare();
+  abrirAvisoDelEnlace();
 }
 
 function showFatalError(err) {
