@@ -53,8 +53,9 @@
   @media (prefers-reduced-motion:reduce){ .card{ @apply transition-none; } .card:hover{ @apply translate-y-0; } }
 
   .card-photos{ @apply min-w-0 max-w-full; -webkit-overflow-scrolling:touch; scroll-snap-type:x mandatory; }
-  .card-photos img{ @apply w-44 h-56 object-cover rounded-2xl shrink-0 bg-stone-100; cursor:zoom-in; scroll-snap-align:start; }
-  .card-photos img:only-child{ @apply w-full h-64; }
+  /* Fotos en su forma real (sin recortar): los avisos diseñados llevan texto hasta el borde. */
+  .card-photos img{ @apply h-60 w-auto max-w-[85%] object-contain rounded-2xl shrink-0 bg-stone-100; cursor:zoom-in; scroll-snap-align:start; }
+  .card-photos img:only-child{ @apply w-full h-auto max-w-full; }
   .card.aviso-resaltado{ @apply ring-4 ring-thread ring-offset-2; }
 
   /* Visor de fotos en grande (ver abrirVisor en app.js) */
