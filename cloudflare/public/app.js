@@ -576,23 +576,104 @@ function parseDocumento(raw) {
   return null;
 }
 
-function renderCardPhotos(node, fotos) {
-  const container = node.querySelector('.card-photos');
-  if (!fotos || !fotos.length) { container.remove(); return; }
-  fotos.forEach((src, i) => {
-    const img = document.createElement('img');
-    img.src = src;
-    img.alt = `Foto ${i + 1} de ${fotos.length}`;
-    img.title = 'Toca para ver en grande';
-    img.addEventListener('click', () => abrirVisor(fotos, i));
-    container.appendChild(img);
+// Fotos y videos de la tarjeta. Para que todas las tarjetas midan casi lo mismo,
+// arriba va una portada cuadrada (la 1ª foto o, si no hay fotos, el 1er video) y
+// todo lo demás en una tira de miniaturas. Un aviso sin fotos ni videos lleva una
+// portada con sus datos. Tocar cualquiera abre el visor con todo junto.
+function renderCardMedia(node, listing, fotos, etiqueta) {
+  const medios = [
+    ...(fotos || []).map(src => ({ tipo: 'foto', src })),
+    ...(listing.videos || []).map(src => ({ tipo: 'video', src })),
+  ];
+  const portada = node.querySelector('.card-portada');
+  const extras = node.querySelector('.card-extras');
+  if (!medios.length) {
+    portada.classList.add('portada-texto');
+    [['portada-marca', 'Confecciones Perú'], ['portada-etiqueta', etiqueta],
+     ['portada-nombre', listing.contacto], ['portada-zona', listing.zona]].forEach(([clase, texto]) => {
+      if (!texto) return;
+      const el = document.createElement(clase === 'portada-etiqueta' ? 'strong' : 'span');
+      el.className = clase;
+      el.textContent = texto;
+      portada.appendChild(el);
+    });
+    return;
+  }
+  portada.appendChild(vistaMedio(medios[0]));
+  portada.setAttribute('role', 'button');
+  portada.tabIndex = 0;
+  portada.setAttribute('aria-label', medios.length > 1 ? `Ver las ${medios.length} fotos y videos en grande` : 'Ver en grande');
+  portada.addEventListener('click', () => abrirVisor(medios, 0));
+  portada.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirVisor(medios, 0); }
+  });
+  medios.slice(1).forEach((m, i) => {
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'extra-thumb';
+    boton.setAttribute('aria-label', m.tipo === 'video' ? 'Ver video' : `Ver foto ${i + 2}`);
+    boton.appendChild(vistaMedio(m));
+    boton.addEventListener('click', () => abrirVisor(medios, i + 1));
+    extras.appendChild(boton);
   });
 }
 
-// Visor de fotos: al tocar una foto de un aviso se abre en grande, y se pasa
-// de una a otra deslizando (celular) o con las flechas (laptop).
+// Una foto, o un video quieto (su primer cuadro) con el botón de play encima.
+function vistaMedio(m) {
+  if (m.tipo === 'foto') {
+    const img = document.createElement('img');
+    img.src = m.src;
+    img.alt = '';
+    img.loading = 'lazy';
+    return img;
+  }
+  const caja = document.createElement('span');
+  caja.className = 'medio-video';
+  const video = document.createElement('video');
+  video.src = `${m.src}#t=0.5`;
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = 'metadata';
+  const play = document.createElement('span');
+  play.className = 'medio-play';
+  play.textContent = '▶';
+  caja.append(video, play);
+  return caja;
+}
+
+// Detalles largos (chips, descripción) recortados con "Ver más", para que una
+// tarjeta con mucho texto no mida el doble. Se mide cuando la tarjeta se ve: una
+// pestaña oculta mide 0, por eso se usa ResizeObserver y no una medida al pintar.
+const medidorDetalles = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(entradas => {
+  entradas.forEach(({ target }) => {
+    if (!target.classList.contains('recortado')) return;
+    const desborda = target.scrollHeight > target.clientHeight + 2;
+    target.classList.toggle('desborda', desborda);
+    target.nextElementSibling.classList.toggle('hidden', !desborda);
+  });
+});
+function wireVerMas(node) {
+  const detalles = node.querySelector('.card-detalles');
+  const boton = node.querySelector('.ver-mas');
+  if (!medidorDetalles) { detalles.classList.remove('recortado'); return; }
+  boton.addEventListener('click', () => {
+    const abrir = detalles.classList.contains('recortado');
+    detalles.classList.toggle('recortado', !abrir);
+    const desborda = !abrir && detalles.scrollHeight > detalles.clientHeight + 2;
+    detalles.classList.toggle('desborda', desborda);
+    boton.classList.toggle('hidden', !abrir && !desborda);
+    boton.textContent = abrir ? 'Ver menos ▴' : 'Ver más ▾';
+  });
+  medidorDetalles.observe(detalles);
+}
+function soltarDetalles(grid) {
+  if (medidorDetalles) grid.querySelectorAll('.card-detalles').forEach(d => medidorDetalles.unobserve(d));
+}
+
+// Visor: al tocar una foto o un video de un aviso se abre en grande, y se pasa
+// de uno a otro deslizando (celular) o con las flechas (laptop).
 let visor = null;
-function abrirVisor(fotos, inicio) {
+function abrirVisor(medios, inicio) {
   if (!visor) {
     visor = document.createElement('div');
     visor.className = 'visor';
@@ -602,8 +683,8 @@ function abrirVisor(fotos, inicio) {
       <div class="visor-pista"></div>
       <span class="visor-contador"></span>
       <button type="button" class="visor-btn visor-cerrar" aria-label="Cerrar">✕</button>
-      <button type="button" class="visor-btn visor-ant" aria-label="Foto anterior">‹</button>
-      <button type="button" class="visor-btn visor-sig" aria-label="Foto siguiente">›</button>`;
+      <button type="button" class="visor-btn visor-ant" aria-label="Anterior">‹</button>
+      <button type="button" class="visor-btn visor-sig" aria-label="Siguiente">›</button>`;
     document.body.appendChild(visor);
     const pista = visor.querySelector('.visor-pista');
     const ir = paso => pista.scrollBy({ left: paso * pista.clientWidth, behavior: 'smooth' });
@@ -613,50 +694,56 @@ function abrirVisor(fotos, inicio) {
     pista.addEventListener('scroll', () => {
       const actual = Math.round(pista.scrollLeft / pista.clientWidth) + 1;
       visor.querySelector('.visor-contador').textContent = `${actual} / ${pista.children.length}`;
+      // El video que queda fuera de la pantalla se pausa.
+      [...pista.children].forEach((marco, i) => {
+        const v = marco.querySelector('video');
+        if (v && i !== actual - 1 && !v.paused) v.pause();
+      });
     });
     // Tocar el fondo oscuro (fuera de la foto) también cierra.
     pista.addEventListener('click', e => { if (e.target.classList.contains('visor-foto')) cerrarVisor(); });
     document.addEventListener('keydown', e => {
       if (!visor.classList.contains('abierto')) return;
       if (e.key === 'Escape') cerrarVisor();
+      if (e.target.tagName === 'VIDEO') return;
       if (e.key === 'ArrowRight') ir(1);
       if (e.key === 'ArrowLeft') ir(-1);
     });
   }
   const pista = visor.querySelector('.visor-pista');
   pista.innerHTML = '';
-  fotos.forEach((src, i) => {
+  medios.forEach((m, i) => {
     const marco = document.createElement('div');
     marco.className = 'visor-foto';
-    const img = document.createElement('img');
-    img.src = src;
-    img.alt = `Foto ${i + 1} de ${fotos.length}`;
-    marco.appendChild(img);
+    let el;
+    if (m.tipo === 'video') {
+      el = document.createElement('video');
+      el.src = m.src;
+      el.controls = true;
+      el.playsInline = true;
+      el.preload = 'metadata';
+    } else {
+      el = document.createElement('img');
+      el.src = m.src;
+      el.alt = `Foto ${i + 1} de ${medios.length}`;
+    }
+    marco.appendChild(el);
     pista.appendChild(marco);
   });
-  visor.querySelector('.visor-ant').hidden = visor.querySelector('.visor-sig').hidden = fotos.length < 2;
+  visor.querySelector('.visor-ant').hidden = visor.querySelector('.visor-sig').hidden = medios.length < 2;
   visor.classList.add('abierto');
   document.body.style.overflow = 'hidden';
   pista.scrollLeft = inicio * pista.clientWidth;
-  visor.querySelector('.visor-contador').textContent = `${inicio + 1} / ${fotos.length}`;
+  visor.querySelector('.visor-contador').textContent = `${inicio + 1} / ${medios.length}`;
+  // Si tocaron un video, que empiece solo (el toque ya cuenta como permiso).
+  const elegido = pista.children[inicio] && pista.children[inicio].querySelector('video');
+  if (elegido) elegido.play().catch(() => {});
 }
 function cerrarVisor() {
   visor.classList.remove('abierto');
+  // Vaciar la pista detiene cualquier video que siga sonando.
+  visor.querySelector('.visor-pista').innerHTML = '';
   document.body.style.overflow = '';
-}
-
-function renderMercVideo(node, listing) {
-  const box = node.querySelector('.merc-videos');
-  (listing.videos || []).forEach((src) => {
-    const video = document.createElement('video');
-    video.src = src;
-    video.controls = true;
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = 'metadata';
-    video.className = 'w-full rounded-2xl bg-stone-100';
-    box.appendChild(video);
-  });
 }
 
 function renderDocLine(node, listing) {
@@ -737,6 +824,7 @@ function render() {
   const empty = document.getElementById('emptyState');
   const tpl = document.getElementById('cardTemplate');
   const metaTpl = document.getElementById('metaLineTemplate');
+  soltarDetalles(grid);
   grid.innerHTML = '';
 
   const filtered = listings
@@ -758,13 +846,13 @@ function render() {
 
     node.querySelector('.owner-actions').classList.toggle('hidden', !esMio(listing.id));
     renderOwnerYape(node, listing);
-    renderCardPhotos(node, listing.fotos);
-    renderMercVideo(node, listing);
     wireCompartirAviso(node, listing);
+    wireVerMas(node);
 
     const tipoBadge = node.querySelector('.tipo-badge');
     tipoBadge.textContent = listing.tipo === 'ofrezco' ? 'Busca personal' : 'Busca trabajo';
     tipoBadge.classList.add(listing.tipo === 'ofrezco' ? 'badge-ofrezco' : 'badge-busca');
+    renderCardMedia(node, listing, listing.fotos, tipoBadge.textContent);
 
     node.querySelector('.urgente-badge').classList.toggle('hidden', !listing.urgente);
     node.querySelector('.destacado-badge').classList.toggle('hidden', !listing.destacado);
@@ -1117,6 +1205,7 @@ function mercRender() {
   const empty = document.getElementById('mercEmptyState');
   const tpl = document.getElementById('mercCardTemplate');
   const metaTpl = document.getElementById('metaLineTemplate');
+  soltarDetalles(grid);
   grid.innerHTML = '';
 
   const filtered = mercListings
@@ -1139,13 +1228,13 @@ function mercRender() {
     node.querySelector('.owner-actions').classList.toggle('hidden', !esMio(listing.id));
     renderOwnerYape(node, listing);
 
-    renderCardPhotos(node, listing.fotos || (listing.foto ? [listing.foto] : []));
-    renderMercVideo(node, listing);
     wireCompartirAviso(node, listing);
+    wireVerMas(node);
 
     const tipoBadge = node.querySelector('.tipo-badge');
     tipoBadge.textContent = listing.tipo === 'vendo' ? 'Vendo' : 'Busco comprar';
     tipoBadge.classList.add(listing.tipo === 'vendo' ? 'badge-ofrezco' : 'badge-busca');
+    renderCardMedia(node, listing, listing.fotos || (listing.foto ? [listing.foto] : []), tipoBadge.textContent);
 
     node.querySelector('.urgente-badge').classList.toggle('hidden', !listing.urgente);
     node.querySelector('.destacado-badge').classList.toggle('hidden', !listing.destacado);
@@ -1428,6 +1517,7 @@ function servicioRender() {
   const empty = document.getElementById('servicioEmptyState');
   const tpl = document.getElementById('servicioCardTemplate');
   const metaTpl = document.getElementById('metaLineTemplate');
+  soltarDetalles(grid);
   grid.innerHTML = '';
 
   const filtered = servicioListings
@@ -1449,13 +1539,13 @@ function servicioRender() {
 
     node.querySelector('.owner-actions').classList.toggle('hidden', !esMio(listing.id));
     renderOwnerYape(node, listing);
-    renderCardPhotos(node, listing.fotos);
-    renderMercVideo(node, listing);
     wireCompartirAviso(node, listing);
+    wireVerMas(node);
 
     const tipoBadge = node.querySelector('.tipo-badge');
     tipoBadge.textContent = listing.tipo === 'ofrezco' ? 'Ofrece servicio' : 'Busca taller';
     tipoBadge.classList.add(listing.tipo === 'ofrezco' ? 'badge-ofrezco' : 'badge-busca');
+    renderCardMedia(node, listing, listing.fotos, tipoBadge.textContent);
 
     node.querySelector('.urgente-badge').classList.toggle('hidden', !listing.urgente);
     node.querySelector('.destacado-badge').classList.toggle('hidden', !listing.destacado);
